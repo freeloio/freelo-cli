@@ -1,0 +1,20 @@
+# Binary
+freelo
+freelo.exe
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Go
+vendor/
+
+# Credentials (never commit!)
+credentials.json
