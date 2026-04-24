@@ -1,27 +1,32 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
+// NewSubtasksCmd creates the 'subtasks' command group.
+//
+// The Freelo API only supports listing and creating subtasks (endpoints
+// /task/{id}/subtasks). The pre-v1.0.0 CLI exposed `show`, `finish`,
+// `activate`, and `delete` subcommands calling /subtask/{id}{/finish,...},
+// but every one of those paths returns 404 from the server — even with a
+// real subtask ID. They never worked. Dropped in Phase 3 to match the
+// actual API surface documented in the OpenAPI spec.
 func NewSubtasksCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "subtasks",
 		Aliases: []string{"subtask", "st"},
-		Short:   "Manage subtasks",
+		Short:   "Manage subtasks (list + create only — see comment in subtasks.go)",
 	}
 
 	cmd.AddCommand(
 		newSubtasksListCmd(app),
 		newSubtasksCreateCmd(app),
-		newSubtasksShowCmd(app),
-		newSubtasksFinishCmd(app),
-		newSubtasksActivateCmd(app),
-		newSubtasksDeleteCmd(app),
 	)
 
 	return cmd
@@ -38,13 +43,13 @@ func newSubtasksListCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--task is required")
 			}
 
-			result, err := app.Client.Get(fmt.Sprintf("/task/%d/subtasks", taskID))
+			body, err := consumeAPIBody(app.FreeloClient.GetSubtasksInTask(cmd.Context(), taskID, &freelo.GetSubtasksInTaskParams{}))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
 
-			subtasks, _ := parsePaginatedItems(result)
+			subtasks, _ := parsePaginatedItems(body)
 
 			simplified := make([]map[string]any, 0, len(subtasks))
 			for _, s := range subtasks {
@@ -79,7 +84,7 @@ func newSubtasksCreateCmd(app *App) *cobra.Command {
 			out := app.Output()
 			taskID, _ := cmd.Flags().GetInt("task")
 			name, _ := cmd.Flags().GetString("name")
-			dueDate, _ := cmd.Flags().GetString("due-date")
+			dueDateStr, _ := cmd.Flags().GetString("due-date")
 			workerID, _ := cmd.Flags().GetInt("worker")
 			priority, _ := cmd.Flags().GetString("priority")
 
@@ -87,25 +92,27 @@ func newSubtasksCreateCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--task and --name are required")
 			}
 
-			body := map[string]any{"name": name}
-			if dueDate != "" {
-				body["due_date"] = dueDate
+			body := freelo.SubtaskCreate{Name: name}
+			if dueDateStr != "" {
+				t, err := time.Parse("2006-01-02", dueDateStr)
+				if err != nil {
+					return fmt.Errorf("invalid --due-date %q, want YYYY-MM-DD", dueDateStr)
+				}
+				body.DueDate = &t
 			}
 			if workerID != 0 {
-				body["worker"] = map[string]any{"id": workerID}
+				body.Worker = &workerID
 			}
 			if priority != "" {
-				body["priority"] = priority
+				p := freelo.SubtaskCreatePriorityEnum(priority)
+				body.PriorityEnum = &p
 			}
 
-			result, err := app.Client.Post(fmt.Sprintf("/task/%d/subtasks", taskID), body)
+			subtask, err := consumeAPIObject(app.FreeloClient.CreateSubtask(cmd.Context(), taskID, body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-
-			var subtask map[string]any
-			_ = json.Unmarshal(result, &subtask)
 			out.OK(subtask, fmt.Sprintf("Subtask '%s' created", name), nil)
 			return nil
 		},
@@ -116,78 +123,4 @@ func newSubtasksCreateCmd(app *App) *cobra.Command {
 	cmd.Flags().Int("worker", 0, "Assign to worker (user ID)")
 	cmd.Flags().String("priority", "", "Priority: h, m, l")
 	return cmd
-}
-
-func newSubtasksShowCmd(app *App) *cobra.Command {
-	return &cobra.Command{
-		Use:   "show <subtask-id>",
-		Short: "Show subtask detail",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			out := app.Output()
-			result, err := app.Client.Get("/subtask/" + args[0])
-			if err != nil {
-				out.Err(err, "not_found", "")
-				return err
-			}
-			var subtask map[string]any
-			_ = json.Unmarshal(result, &subtask)
-			out.OK(subtask, "", nil)
-			return nil
-		},
-	}
-}
-
-func newSubtasksFinishCmd(app *App) *cobra.Command {
-	return &cobra.Command{
-		Use:   "finish <subtask-id>",
-		Short: "Mark subtask as finished",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			out := app.Output()
-			_, err := app.Client.Post("/subtask/"+args[0]+"/finish", nil)
-			if err != nil {
-				out.Err(err, "finish_failed", "")
-				return err
-			}
-			out.OK(map[string]any{"id": mustInt(args[0]), "finished": true}, fmt.Sprintf("Subtask %s finished", args[0]), nil)
-			return nil
-		},
-	}
-}
-
-func newSubtasksActivateCmd(app *App) *cobra.Command {
-	return &cobra.Command{
-		Use:   "activate <subtask-id>",
-		Short: "Reopen a finished subtask",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			out := app.Output()
-			_, err := app.Client.Post("/subtask/"+args[0]+"/activate", nil)
-			if err != nil {
-				out.Err(err, "activate_failed", "")
-				return err
-			}
-			out.OK(map[string]any{"id": mustInt(args[0]), "activated": true}, fmt.Sprintf("Subtask %s activated", args[0]), nil)
-			return nil
-		},
-	}
-}
-
-func newSubtasksDeleteCmd(app *App) *cobra.Command {
-	return &cobra.Command{
-		Use:   "delete <subtask-id>",
-		Short: "Delete a subtask",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			out := app.Output()
-			_, err := app.Client.Delete("/subtask/" + args[0])
-			if err != nil {
-				out.Err(err, "delete_failed", "")
-				return err
-			}
-			out.OK(map[string]any{"id": mustInt(args[0]), "deleted": true}, fmt.Sprintf("Subtask %s deleted", args[0]), nil)
-			return nil
-		},
-	}
 }
