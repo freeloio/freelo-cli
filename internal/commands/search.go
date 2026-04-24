@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
 // NewSearchCmd creates the 'search' command.
+//
+// Phase 3 migration: POST /search via app.FreeloClient.
 func NewSearchCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search <query>",
@@ -22,28 +25,27 @@ func NewSearchCmd(app *App) *cobra.Command {
 			projectID, _ := cmd.Flags().GetInt("project")
 			page, _ := cmd.Flags().GetInt("page")
 
-			body := map[string]any{
-				"search_query": query,
-			}
+			body := freelo.SearchJSONRequestBody{SearchQuery: query}
 			if entityType != "" {
-				body["entity_type"] = entityType
+				et := freelo.SearchJSONBodyEntityType(entityType)
+				body.EntityType = &et
 			}
 			if projectID != 0 {
-				body["projects_ids"] = []int{projectID}
+				ids := []int{projectID}
+				body.ProjectsIds = &ids
 			}
 			if page > 0 {
-				body["page"] = page
+				body.Page = &page
 			}
 
-			result, err := app.Client.Post("/search", body)
+			respBody, err := consumeAPIBody(app.FreeloClient.Search(cmd.Context(), body))
 			if err != nil {
 				out.Err(err, "search_failed", "")
 				return err
 			}
 
-			items, paginated := parsePaginatedItems(result)
+			items, paginated := parsePaginatedItems(respBody)
 
-			// Simplify items for display
 			simplified := make([]map[string]any, 0, len(items))
 			for _, m := range items {
 				item := map[string]any{
@@ -56,14 +58,13 @@ func NewSearchCmd(app *App) *cobra.Command {
 				}
 				simplified = append(simplified, item)
 			}
-			items = simplified
 
 			total := ""
 			if paginated != nil && paginated.Total > 0 {
 				total = fmt.Sprintf(" (total: %d)", paginated.Total)
 			}
 
-			out.OK(items, fmt.Sprintf("%d results for '%s'%s", len(items), query, total), []output.Breadcrumb{
+			out.OK(simplified, fmt.Sprintf("%d results for '%s'%s", len(simplified), query, total), []output.Breadcrumb{
 				{Action: "view", Cmd: "freelo tasks show <id>", Description: "View task result"},
 				{Action: "view", Cmd: "freelo projects show <id>", Description: "View project result"},
 			})
