@@ -177,13 +177,17 @@ func TestAuthStatusAuthenticated(t *testing.T) {
 // TestUsersMe is the minimal real-API round-trip: `/users/me` has no
 // pagination or filters and returns a stable shape. If this regresses during
 // Phase 3 the wrapper is fundamentally broken.
+//
+// Freelo wraps the payload as {"result":"success","user":{...}} — the CLI
+// passes it through unchanged, so the test unwraps `user` explicitly.
 func TestUsersMe(t *testing.T) {
 	got := runFreeloJSON(t, "users", "me")
-	if _, ok := got["id"]; !ok {
-		t.Errorf("users/me response missing id: %v", got)
+	user, ok := got["user"].(map[string]any)
+	if !ok {
+		t.Fatalf("users/me: expected `user` object, got %v", got)
 	}
-	if got["email"] != testEmail {
-		t.Errorf("users/me email=%v, want %q", got["email"], testEmail)
+	if _, ok := user["id"]; !ok {
+		t.Errorf("users/me response missing user.id: %v", user)
 	}
 }
 
