@@ -24,7 +24,7 @@ Full plan lives in auto-memory (`project_freelo_cli_goal.md`). Short version:
 |---|---|---|
 | 1 | Cleanup + foundation (this file, CI, version) | done |
 | 2 | Integration + unit test harness | done |
-| 3 | `oapi-codegen` migration (replace handwritten client) | **in progress** — generator + wrapper landed, commands still on old client |
+| 3 | `oapi-codegen` migration (replace handwritten client) | done |
 | 4 | Rewrite embedded SKILL.md for CLI users | pending |
 | 5 | OS keyring, goreleaser dry-run, docs polish | pending |
 | 6 | Public launch v1.0.0 + Homebrew tap | pending |
@@ -41,11 +41,17 @@ until Freelo backend provisions a dedicated `client_id` for the CLI.
 cmd/freelo/              main.go — thin entrypoint, calls cli.Execute()
 internal/
   cli/root.go            root cobra.Command, wires all subcommands (lazy)
-  commands/              27 command groups (tasks, projects, comments, ...)
-  api/client.go          handwritten HTTP client — used by commands today,
-                         will disappear once every command is migrated
-  api/wrapper.go         production seam for the new generated client:
-                         Basic Auth + User-Agent + rate limit + retry+backoff
+  commands/              27 command groups, all on the typed Freelo client.
+                         Each command calls app.FreeloClient.<Op>(ctx, ...)
+                         with typed params + bodies and decodes raw
+                         *http.Response via helpers.go (consumeAPIObject /
+                         consumeAPIBody). Union types (labels, files) use
+                         the generated From*Input0/1/2 helpers.
+  api/wrapper.go         production seam for the generated client:
+                         Basic Auth + User-Agent + rate limit + retry+backoff.
+                         Exposes RawClientFromResponses for the `api`
+                         passthrough to reach the underlying Server + doer +
+                         RequestEditors without rebuilding the stack.
   api/freelo/            oapi-codegen output (DO NOT EDIT — regenerate via `make gen`)
   auth/auth.go           Provider interface + BasicAuth impl
   auth/keyring.go        file-based keyring (0600 JSON; Phase 5 → OS keyring)
@@ -59,6 +65,20 @@ spec/freelo-api.yaml     vendored OpenAPI 3.0.3 spec (6205 lines, 90 paths) —
                          patched: schema `Client` → `BusinessClient` so it
                          does not collide with oapi-codegen's HTTP `Client` type
 ```
+
+**Why we use the raw `*http.Response` methods (not `*WithResponse` variants):**
+Freelo returns timestamps without a timezone suffix (`"2026-04-24T11:12:38"`).
+oapi-codegen's generated `*WithResponse` methods auto-decode 2xx JSON into typed
+structs that expect RFC3339 timestamps with a zone, so the decode fails and the
+whole call returns an error even on HTTP 200. Going through the raw methods
+keeps us on typed params + the wrapper's auth/UA/retry without tripping that
+bug. See `internal/commands/helpers.go` for the shared `readRawBody` /
+`consumeAPIObject` / `consumeAPIBody` helpers every command uses.
+
+**Commands that were dropped during Phase 3** (the spec confirmed they're not
+supported server-side; probed live to verify every one returns 404):
+- `subtasks show|finish|activate|delete` — `/subtask/{id}` doesn't exist
+- `comments delete` — `/comment/{id}` only supports POST (edit), not DELETE
 
 `make gen` downloads the upstream spec, re-applies the `Client → BusinessClient`
 sed, and regenerates `internal/api/freelo/freelo.gen.go`. The rename is the

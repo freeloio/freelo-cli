@@ -41,11 +41,9 @@ freelo works with any AI agent that can run shell commands.`,
 			cfg := config.Load(devMode)
 			credsFile := config.CredentialsFilename(devMode)
 			authProvider := auth.NewBasicAuth(credsFile)
-			client := api.NewClient(cfg, authProvider)
 
-			// Generated + wrapped Freelo client (used by Phase-3-migrated commands).
-			// Build is infallible in practice — NewClientWithResponses only fails
-			// on a malformed base URL, which config.Load has already validated.
+			// Build the Freelo client. NewClientWithResponses only fails on a
+			// malformed base URL, which config.Load has already validated.
 			freeloClient, err := api.NewFreeloClient(cfg, authProvider, "FreeloCLI/"+Version)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "failed to build Freelo client: %v\n", err)
@@ -78,7 +76,6 @@ freelo works with any AI agent that can run shell commands.`,
 			app = &commands.App{
 				Config:       cfg,
 				Auth:         authProvider,
-				Client:       client,
 				FreeloClient: freeloClient,
 				Output: func() *output.Writer {
 					return output.NewWriter(outputFormat)
