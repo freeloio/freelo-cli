@@ -2,11 +2,15 @@ package commands
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/spf13/cobra"
 )
 
+// NewEventsCmd creates the 'events' command group.
+//
+// Phase 3 migration: single read-only listing endpoint (/events) via
+// app.FreeloClient.GetAllEvents with typed filter params.
 func NewEventsCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "events",
@@ -28,28 +32,27 @@ func newEventsListCmd(app *App) *cobra.Command {
 			userID, _ := cmd.Flags().GetInt("user")
 			page, _ := cmd.Flags().GetInt("page")
 
-			path := "/events"
-			params := []string{}
+			params := &freelo.GetAllEventsParams{}
 			if projectID != 0 {
-				params = append(params, fmt.Sprintf("projects_ids[]=%d", projectID))
+				ids := []int{projectID}
+				params.ProjectsIds = &ids
 			}
 			if userID != 0 {
-				params = append(params, fmt.Sprintf("users_ids[]=%d", userID))
+				ids := []int{userID}
+				params.UsersIds = &ids
 			}
 			if page > 0 {
-				params = append(params, fmt.Sprintf("p=%d", page))
-			}
-			if len(params) > 0 {
-				path += "?" + strings.Join(params, "&")
+				p := freelo.PageParam(page)
+				params.P = &p
 			}
 
-			result, err := app.Client.Get(path)
+			body, err := consumeAPIBody(app.FreeloClient.GetAllEvents(cmd.Context(), params))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
 
-			events, _ := parsePaginatedItems(result)
+			events, _ := parsePaginatedItems(body)
 
 			out.OK(events, fmt.Sprintf("%d events", len(events)), nil)
 			return nil
@@ -57,6 +60,6 @@ func newEventsListCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
 	cmd.Flags().Int("user", 0, "Filter by user ID")
-	cmd.Flags().Int("page", 0, "Page number")
+	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
 	return cmd
 }
