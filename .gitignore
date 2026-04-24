@@ -18,3 +18,5 @@ vendor/
 
 # Credentials (never commit!)
 credentials.json
+.env.freelo-test
+.env.*.local
