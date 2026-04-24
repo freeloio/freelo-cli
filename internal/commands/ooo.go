@@ -1,9 +1,10 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/spf13/cobra"
 )
 
@@ -33,20 +34,29 @@ func newOOOStatusCmd(app *App) *cobra.Command {
 			if userID == 0 {
 				return fmt.Errorf("--user is required")
 			}
-
-			result, err := app.Client.Get(fmt.Sprintf("/user/%d/out-of-office", userID))
+			status, err := consumeAPIObject(app.FreeloClient.GetOutOfOffice(cmd.Context(), userID))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
-			var status map[string]any
-			_ = json.Unmarshal(result, &status)
 			out.OK(status, "", nil)
 			return nil
 		},
 	}
 	cmd.Flags().Int("user", 0, "User ID (required)")
 	return cmd
+}
+
+// parseOOODate accepts either "YYYY-MM-DD" (treated as start of day UTC) or
+// "YYYY-MM-DD HH:MM:SS" (also UTC). The legacy CLI advertised the second
+// form in --help; we accept both.
+func parseOOODate(s string) (time.Time, error) {
+	for _, layout := range []string{"2006-01-02 15:04:05", "2006-01-02"} {
+		if t, err := time.ParseInLocation(layout, s, time.UTC); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("want YYYY-MM-DD [HH:MM:SS] (UTC), got %q", s)
 }
 
 func newOOOEnableCmd(app *App) *cobra.Command {
@@ -56,30 +66,38 @@ func newOOOEnableCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 			userID, _ := cmd.Flags().GetInt("user")
-			dateFrom, _ := cmd.Flags().GetString("from")
-			dateTo, _ := cmd.Flags().GetString("to")
+			fromStr, _ := cmd.Flags().GetString("from")
+			toStr, _ := cmd.Flags().GetString("to")
 
-			if userID == 0 || dateFrom == "" || dateTo == "" {
+			if userID == 0 || fromStr == "" || toStr == "" {
 				return fmt.Errorf("--user, --from, and --to are required")
 			}
 
-			result, err := app.Client.Post(fmt.Sprintf("/user/%d/out-of-office", userID), map[string]any{
-				"date_from": dateFrom,
-				"date_to":   dateTo,
-			})
+			from, err := parseOOODate(fromStr)
+			if err != nil {
+				return fmt.Errorf("--from: %v", err)
+			}
+			to, err := parseOOODate(toStr)
+			if err != nil {
+				return fmt.Errorf("--to: %v", err)
+			}
+
+			body := freelo.EnableOutOfOfficeJSONRequestBody{}
+			body.OutOfOffice.DateFrom = from
+			body.OutOfOffice.DateTo = to
+
+			resp, err := consumeAPIObject(app.FreeloClient.EnableOutOfOffice(cmd.Context(), userID, body))
 			if err != nil {
 				out.Err(err, "enable_failed", "")
 				return err
 			}
-			var resp any
-			_ = json.Unmarshal(result, &resp)
-			out.OK(resp, fmt.Sprintf("Out-of-office enabled %s to %s", dateFrom, dateTo), nil)
+			out.OK(resp, fmt.Sprintf("Out-of-office enabled %s to %s", fromStr, toStr), nil)
 			return nil
 		},
 	}
 	cmd.Flags().Int("user", 0, "User ID (required)")
-	cmd.Flags().String("from", "", "Start date UTC (YYYY-MM-DD HH:MM:SS)")
-	cmd.Flags().String("to", "", "End date UTC (YYYY-MM-DD HH:MM:SS)")
+	cmd.Flags().String("from", "", "Start date UTC (YYYY-MM-DD [HH:MM:SS])")
+	cmd.Flags().String("to", "", "End date UTC (YYYY-MM-DD [HH:MM:SS])")
 	return cmd
 }
 
@@ -93,9 +111,7 @@ func newOOODisableCmd(app *App) *cobra.Command {
 			if userID == 0 {
 				return fmt.Errorf("--user is required")
 			}
-
-			_, err := app.Client.Delete(fmt.Sprintf("/user/%d/out-of-office", userID))
-			if err != nil {
+			if _, err := consumeAPIObject(app.FreeloClient.DisableOutOfOffice(cmd.Context(), userID)); err != nil {
 				out.Err(err, "disable_failed", "")
 				return err
 			}
