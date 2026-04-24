@@ -56,6 +56,20 @@ func NewFreeloClient(cfg *config.Config, authProvider auth.Provider, userAgent s
 	)
 }
 
+// RawClientFromResponses pulls the underlying *freelo.Client out of a
+// ClientWithResponses so callers can reach its Server / Client (doer) /
+// RequestEditors for ad-hoc paths the generated client doesn't cover
+// (e.g. the `freelo api` passthrough command). The assertion is safe for
+// clients built via NewFreeloClient because oapi-codegen always wraps a
+// concrete *Client.
+func RawClientFromResponses(c *freelo.ClientWithResponses) (*freelo.Client, bool) {
+	if c == nil {
+		return nil, false
+	}
+	inner, ok := c.ClientInterface.(*freelo.Client)
+	return inner, ok
+}
+
 // basicAuthEditor injects the user's email + API key on every request.
 // It resolves credentials per-request so that a CLI session that runs
 // `freelo auth login` mid-flight picks up the new creds next call.
