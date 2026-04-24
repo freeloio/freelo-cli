@@ -13,7 +13,7 @@ import (
 )
 
 // Version is set at build time via ldflags.
-var Version = "dev"
+var Version = "v1.0.0-dev"
 
 // Execute is the main entry point for the CLI.
 func Execute() error {

@@ -12,12 +12,12 @@ import (
 type Format int
 
 const (
-	FormatAuto   Format = iota // Styled if TTY, JSON if piped
-	FormatJSON                 // JSON with envelope
-	FormatAgent                // Raw JSON data only (--agent = --json + --quiet)
-	FormatQuiet                // Minimal output
-	FormatIDs                  // IDs only, one per line
-	FormatCount                // Just the count
+	FormatAuto  Format = iota // Styled if TTY, JSON if piped
+	FormatJSON                // JSON with envelope
+	FormatAgent               // Raw JSON data only (--agent = --json + --quiet)
+	FormatQuiet               // Minimal output
+	FormatIDs                 // IDs only, one per line
+	FormatCount               // Just the count
 )
 
 // Breadcrumb suggests a follow-up action to the user or agent.
@@ -29,10 +29,10 @@ type Breadcrumb struct {
 
 // Response is the standard JSON envelope for successful responses.
 type Response struct {
-	OK          bool            `json:"ok"`
-	Data        any             `json:"data"`
-	Summary     string          `json:"summary,omitempty"`
-	Breadcrumbs []Breadcrumb    `json:"breadcrumbs,omitempty"`
+	OK          bool         `json:"ok"`
+	Data        any          `json:"data"`
+	Summary     string       `json:"summary,omitempty"`
+	Breadcrumbs []Breadcrumb `json:"breadcrumbs,omitempty"`
 }
 
 // ErrorResponse is the JSON envelope for errors.

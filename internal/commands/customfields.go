@@ -361,9 +361,9 @@ func newCFSetEnumValueCmd(app *App) *cobra.Command {
 			}
 
 			result, err := app.Client.Post("/custom-field/add-or-edit-enum-value", map[string]any{
-				"task_id":                 taskID,
-				"custom_field_uuid":       fieldUUID,
-				"custom_field_enum_uuid":  enumUUID,
+				"task_id":                taskID,
+				"custom_field_uuid":      fieldUUID,
+				"custom_field_enum_uuid": enumUUID,
 			})
 			if err != nil {
 				out.Err(err, "set_enum_value_failed", "")

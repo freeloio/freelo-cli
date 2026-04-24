@@ -14,10 +14,10 @@ func NewVersionCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 			out.OK(map[string]any{
-				"version":  app.Version,
-				"go":       runtime.Version(),
-				"os":       runtime.GOOS,
-				"arch":     runtime.GOARCH,
+				"version": app.Version,
+				"go":      runtime.Version(),
+				"os":      runtime.GOOS,
+				"arch":    runtime.GOARCH,
 			}, "freelo-cli "+app.Version, nil)
 			return nil
 		},

@@ -23,30 +23,36 @@ type AppGetter func() *App
 // Lazy command constructors — these wrap the original constructors to work with
 // deferred App initialization (App is created in PersistentPreRun based on --dev flag).
 
-func NewAuthCmdLazy(getApp AppGetter) *cobra.Command          { return wrapLazy(getApp, NewAuthCmd) }
-func NewProjectsCmdLazy(getApp AppGetter) *cobra.Command       { return wrapLazy(getApp, NewProjectsCmd) }
-func NewTasksCmdLazy(getApp AppGetter) *cobra.Command          { return wrapLazy(getApp, NewTasksCmd) }
-func NewTasklistsCmdLazy(getApp AppGetter) *cobra.Command      { return wrapLazy(getApp, NewTasklistsCmd) }
-func NewSubtasksCmdLazy(getApp AppGetter) *cobra.Command       { return wrapLazy(getApp, NewSubtasksCmd) }
-func NewSearchCmdLazy(getApp AppGetter) *cobra.Command         { return wrapLazy(getApp, NewSearchCmd) }
-func NewCommentsCmdLazy(getApp AppGetter) *cobra.Command       { return wrapLazy(getApp, NewCommentsCmd) }
-func NewNotificationsCmdLazy(getApp AppGetter) *cobra.Command  { return wrapLazy(getApp, NewNotificationsCmd) }
-func NewTrackingCmdLazy(getApp AppGetter) *cobra.Command       { return wrapLazy(getApp, NewTrackingCmd) }
-func NewReportsCmdLazy(getApp AppGetter) *cobra.Command        { return wrapLazy(getApp, NewReportsCmd) }
-func NewLabelsCmdLazy(getApp AppGetter) *cobra.Command         { return wrapLazy(getApp, NewLabelsCmd) }
-func NewNotesCmdLazy(getApp AppGetter) *cobra.Command          { return wrapLazy(getApp, NewNotesCmd) }
-func NewFilesCmdLazy(getApp AppGetter) *cobra.Command          { return wrapLazy(getApp, NewFilesCmd) }
-func NewCustomFieldsCmdLazy(getApp AppGetter) *cobra.Command   { return wrapLazy(getApp, NewCustomFieldsCmd) }
-func NewPinnedCmdLazy(getApp AppGetter) *cobra.Command         { return wrapLazy(getApp, NewPinnedCmd) }
-func NewTemplatesCmdLazy(getApp AppGetter) *cobra.Command      { return wrapLazy(getApp, NewTemplatesCmd) }
-func NewUsersCmdLazy(getApp AppGetter) *cobra.Command          { return wrapLazy(getApp, NewUsersCmd) }
-func NewWorkersCmdLazy(getApp AppGetter) *cobra.Command        { return wrapLazy(getApp, NewWorkersCmd) }
-func NewOutOfOfficeCmdLazy(getApp AppGetter) *cobra.Command    { return wrapLazy(getApp, NewOutOfOfficeCmd) }
-func NewInvoicesCmdLazy(getApp AppGetter) *cobra.Command       { return wrapLazy(getApp, NewInvoicesCmd) }
-func NewEventsCmdLazy(getApp AppGetter) *cobra.Command         { return wrapLazy(getApp, NewEventsCmd) }
-func NewSkillCmdLazy(getApp AppGetter) *cobra.Command          { return wrapLazy(getApp, NewSkillCmd) }
-func NewVersionCmdLazy(getApp AppGetter) *cobra.Command        { return wrapLazy(getApp, NewVersionCmd) }
-func NewAPICmdLazy(getApp AppGetter) *cobra.Command            { return wrapLazy(getApp, NewAPICmd) }
+func NewAuthCmdLazy(getApp AppGetter) *cobra.Command      { return wrapLazy(getApp, NewAuthCmd) }
+func NewProjectsCmdLazy(getApp AppGetter) *cobra.Command  { return wrapLazy(getApp, NewProjectsCmd) }
+func NewTasksCmdLazy(getApp AppGetter) *cobra.Command     { return wrapLazy(getApp, NewTasksCmd) }
+func NewTasklistsCmdLazy(getApp AppGetter) *cobra.Command { return wrapLazy(getApp, NewTasklistsCmd) }
+func NewSubtasksCmdLazy(getApp AppGetter) *cobra.Command  { return wrapLazy(getApp, NewSubtasksCmd) }
+func NewSearchCmdLazy(getApp AppGetter) *cobra.Command    { return wrapLazy(getApp, NewSearchCmd) }
+func NewCommentsCmdLazy(getApp AppGetter) *cobra.Command  { return wrapLazy(getApp, NewCommentsCmd) }
+func NewNotificationsCmdLazy(getApp AppGetter) *cobra.Command {
+	return wrapLazy(getApp, NewNotificationsCmd)
+}
+func NewTrackingCmdLazy(getApp AppGetter) *cobra.Command { return wrapLazy(getApp, NewTrackingCmd) }
+func NewReportsCmdLazy(getApp AppGetter) *cobra.Command  { return wrapLazy(getApp, NewReportsCmd) }
+func NewLabelsCmdLazy(getApp AppGetter) *cobra.Command   { return wrapLazy(getApp, NewLabelsCmd) }
+func NewNotesCmdLazy(getApp AppGetter) *cobra.Command    { return wrapLazy(getApp, NewNotesCmd) }
+func NewFilesCmdLazy(getApp AppGetter) *cobra.Command    { return wrapLazy(getApp, NewFilesCmd) }
+func NewCustomFieldsCmdLazy(getApp AppGetter) *cobra.Command {
+	return wrapLazy(getApp, NewCustomFieldsCmd)
+}
+func NewPinnedCmdLazy(getApp AppGetter) *cobra.Command    { return wrapLazy(getApp, NewPinnedCmd) }
+func NewTemplatesCmdLazy(getApp AppGetter) *cobra.Command { return wrapLazy(getApp, NewTemplatesCmd) }
+func NewUsersCmdLazy(getApp AppGetter) *cobra.Command     { return wrapLazy(getApp, NewUsersCmd) }
+func NewWorkersCmdLazy(getApp AppGetter) *cobra.Command   { return wrapLazy(getApp, NewWorkersCmd) }
+func NewOutOfOfficeCmdLazy(getApp AppGetter) *cobra.Command {
+	return wrapLazy(getApp, NewOutOfOfficeCmd)
+}
+func NewInvoicesCmdLazy(getApp AppGetter) *cobra.Command { return wrapLazy(getApp, NewInvoicesCmd) }
+func NewEventsCmdLazy(getApp AppGetter) *cobra.Command   { return wrapLazy(getApp, NewEventsCmd) }
+func NewSkillCmdLazy(getApp AppGetter) *cobra.Command    { return wrapLazy(getApp, NewSkillCmd) }
+func NewVersionCmdLazy(getApp AppGetter) *cobra.Command  { return wrapLazy(getApp, NewVersionCmd) }
+func NewAPICmdLazy(getApp AppGetter) *cobra.Command      { return wrapLazy(getApp, NewAPICmd) }
 
 // wrapLazy creates a command using a placeholder App, then replaces its RunE
 // functions at execution time with the real App from PersistentPreRun.
