@@ -2,7 +2,7 @@ VERSION ?= v1.0.0-dev
 BINARY = freelo
 INSTALL_DIR = $(HOME)/bin
 
-.PHONY: build install clean test test-integration test-live release-dry release help
+.PHONY: build install clean test test-integration test-live gen release-dry release help
 
 ## build: Build the freelo binary
 build:
@@ -28,6 +28,15 @@ test:
 test-integration:
 	@if [ -f .env.freelo-test ]; then set -a && . ./.env.freelo-test && set +a; fi; \
 	go test -tags=integration ./test/integration/... -v -timeout 5m
+
+## gen: Download the Freelo OpenAPI spec and regenerate the API client
+gen:
+	@echo "Downloading spec..."
+	@curl -fsSL https://api.freelo.io/docs/v1/freelo-api.yaml -o spec/freelo-api.yaml
+	@echo "Applying Client → BusinessClient rename (avoids collision with HTTP Client type)..."
+	@sed -i '' 's|^    Client:|    BusinessClient:|; s|#/components/schemas/Client|#/components/schemas/BusinessClient|g' spec/freelo-api.yaml
+	@echo "Generating client..."
+	go generate ./internal/api/freelo/...
 
 ## test-live: Run all commands against the live Freelo API
 test-live: build

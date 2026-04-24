@@ -23,8 +23,8 @@ Full plan lives in auto-memory (`project_freelo_cli_goal.md`). Short version:
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Cleanup + foundation (this file, CI, version) | done |
-| 2 | Integration + unit test harness | **in progress** |
-| 3 | `oapi-codegen` migration (replace handwritten client) | pending |
+| 2 | Integration + unit test harness | done |
+| 3 | `oapi-codegen` migration (replace handwritten client) | **in progress** — generator + wrapper landed, commands still on old client |
 | 4 | Rewrite embedded SKILL.md for CLI users | pending |
 | 5 | OS keyring, goreleaser dry-run, docs polish | pending |
 | 6 | Public launch v1.0.0 + Homebrew tap | pending |
@@ -42,7 +42,11 @@ cmd/freelo/              main.go — thin entrypoint, calls cli.Execute()
 internal/
   cli/root.go            root cobra.Command, wires all subcommands (lazy)
   commands/              27 command groups (tasks, projects, comments, ...)
-  api/client.go          handwritten HTTP client (Phase 3 will replace this)
+  api/client.go          handwritten HTTP client — used by commands today,
+                         will disappear once every command is migrated
+  api/wrapper.go         production seam for the new generated client:
+                         Basic Auth + User-Agent + rate limit + retry+backoff
+  api/freelo/            oapi-codegen output (DO NOT EDIT — regenerate via `make gen`)
   auth/auth.go           Provider interface + BasicAuth impl
   auth/keyring.go        file-based keyring (0600 JSON; Phase 5 → OS keyring)
   config/config.go       layered config: flags > env > local > global > defaults
@@ -51,8 +55,15 @@ skills/
   embed.go               go:embed the SKILL.md bundled into the binary
   freelo/SKILL.md        224-line legacy skill (Phase 4 will rewrite from the
                          1613-line public skill, translating curl → freelo syntax)
-spec/                    (Phase 3) vendored OpenAPI spec + generated client
+spec/freelo-api.yaml     vendored OpenAPI 3.0.3 spec (6205 lines, 90 paths) —
+                         patched: schema `Client` → `BusinessClient` so it
+                         does not collide with oapi-codegen's HTTP `Client` type
 ```
+
+`make gen` downloads the upstream spec, re-applies the `Client → BusinessClient`
+sed, and regenerates `internal/api/freelo/freelo.gen.go`. The rename is the
+only manual patch needed today; if Freelo adds more type-name collisions in the
+future they go in the same Makefile step.
 
 Key design decisions already made:
 
