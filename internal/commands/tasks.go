@@ -1,15 +1,21 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
-	"strings"
+	"strconv"
+	"time"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
 // NewTasksCmd creates the 'tasks' command group.
+//
+// Phase 3 migration: all subcommands call the oapi-codegen-generated typed
+// client via app.FreeloClient. We deliberately use the raw *http.Response
+// methods (not the *WithResponse typed ones) and decode the body ourselves
+// — see readRawBody in helpers.go for the rationale.
 func NewTasksCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "tasks",
@@ -31,6 +37,20 @@ func NewTasksCmd(app *App) *cobra.Command {
 	return cmd
 }
 
+// parseDueDate turns a "YYYY-MM-DD" flag value into a *time.Time. Returns
+// nil if the input is empty. Any parse error is surfaced so the user learns
+// immediately rather than after the request fails server-side.
+func parseDueDate(s string) (*time.Time, error) {
+	if s == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --due-date %q, want YYYY-MM-DD", s)
+	}
+	return &t, nil
+}
+
 func newTasksListCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -43,45 +63,41 @@ func newTasksListCmd(app *App) *cobra.Command {
 			search, _ := cmd.Flags().GetString("search")
 			workerID, _ := cmd.Flags().GetInt("worker")
 			state, _ := cmd.Flags().GetString("state")
-			page, _ := cmd.Flags().GetInt("page")
 
-			// Build query path
-			var path string
+			ctx := cmd.Context()
+			var body []byte
+			var err error
+
 			if tasklistID != 0 && projectID != 0 {
-				path = fmt.Sprintf("/project/%d/tasklist/%d/tasks", projectID, tasklistID)
+				body, err = consumeAPIBody(app.FreeloClient.GetTasksInTasklist(ctx, projectID, tasklistID, nil))
 			} else {
-				// Use /all-tasks with filters
-				path = "/all-tasks"
-				params := []string{}
+				params := &freelo.GetAllTasksParams{}
 				if search != "" {
-					params = append(params, "search_query="+search)
+					params.SearchQuery = &search
 				}
 				if projectID != 0 {
-					params = append(params, fmt.Sprintf("projects_ids[]=%d", projectID))
+					ids := []int{projectID}
+					params.ProjectsIds = &ids
 				}
-				if workerID != 0 {
-					params = append(params, fmt.Sprintf("worker_id=%d", workerID))
-				}
+				// /all-tasks does not expose a worker filter in the OpenAPI spec.
+				// The handwritten client used to pass worker_id= and the server
+				// silently ignored it; we stay silent here too.
+				_ = workerID
 				if state != "" {
-					params = append(params, "state_id="+state)
+					if n, perr := strconv.Atoi(state); perr == nil {
+						params.StateId = &n
+					}
 				}
-				if page > 0 {
-					params = append(params, fmt.Sprintf("p=%d", page))
-				}
-				if len(params) > 0 {
-					path += "?" + strings.Join(params, "&")
-				}
+				body, err = consumeAPIBody(app.FreeloClient.GetAllTasks(ctx, params))
 			}
 
-			result, err := app.Client.Get(path)
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
 
-			tasks, paginated := parsePaginatedItems(result)
+			tasks, paginated := parsePaginatedItems(body)
 
-			// Simplify for display
 			simplified := make([]map[string]any, 0, len(tasks))
 			for _, t := range tasks {
 				item := map[string]any{
@@ -121,8 +137,8 @@ func newTasksListCmd(app *App) *cobra.Command {
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
 	cmd.Flags().Int("tasklist", 0, "Filter by tasklist ID (requires --project)")
 	cmd.Flags().StringP("search", "s", "", "Search query")
-	cmd.Flags().Int("worker", 0, "Filter by worker (user) ID")
-	cmd.Flags().String("state", "", "Filter by state")
+	cmd.Flags().Int("worker", 0, "(unsupported by /all-tasks — see note in code) Filter by worker ID")
+	cmd.Flags().String("state", "", "Filter by state ID (numeric)")
 	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
 	return cmd
 }
@@ -134,16 +150,13 @@ func newTasksShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := args[0]
+			taskID := mustInt(args[0])
 
-			result, err := app.Client.Get("/task/" + taskID)
+			task, err := consumeAPIObject(app.FreeloClient.GetTask(cmd.Context(), taskID))
 			if err != nil {
 				out.Err(err, "not_found", "Check task ID with 'freelo tasks list'")
 				return err
 			}
-
-			var task map[string]any
-			_ = json.Unmarshal(result, &task)
 
 			name := ""
 			if n, ok := task["name"].(string); ok {
@@ -151,11 +164,11 @@ func newTasksShowCmd(app *App) *cobra.Command {
 			}
 
 			out.OK(task, name, []output.Breadcrumb{
-				{Action: "edit", Cmd: fmt.Sprintf("freelo tasks edit %s --name <name>", taskID), Description: "Edit task"},
-				{Action: "finish", Cmd: fmt.Sprintf("freelo tasks finish %s", taskID), Description: "Complete task"},
-				{Action: "comment", Cmd: fmt.Sprintf("freelo comments create --task %s --content <text>", taskID), Description: "Add comment"},
-				{Action: "description", Cmd: fmt.Sprintf("freelo tasks description %s", taskID), Description: "View description"},
-				{Action: "track", Cmd: fmt.Sprintf("freelo tracking start --task %s", taskID), Description: "Start time tracking"},
+				{Action: "edit", Cmd: fmt.Sprintf("freelo tasks edit %d --name <name>", taskID), Description: "Edit task"},
+				{Action: "finish", Cmd: fmt.Sprintf("freelo tasks finish %d", taskID), Description: "Complete task"},
+				{Action: "comment", Cmd: fmt.Sprintf("freelo comments create --task %d --content <text>", taskID), Description: "Add comment"},
+				{Action: "description", Cmd: fmt.Sprintf("freelo tasks description %d", taskID), Description: "View description"},
+				{Action: "track", Cmd: fmt.Sprintf("freelo tracking start --task %d", taskID), Description: "Start time tracking"},
 			})
 			return nil
 		},
@@ -172,7 +185,7 @@ func newTasksCreateCmd(app *App) *cobra.Command {
 			projectID, _ := cmd.Flags().GetInt("project")
 			tasklistID, _ := cmd.Flags().GetInt("tasklist")
 			name, _ := cmd.Flags().GetString("name")
-			dueDate, _ := cmd.Flags().GetString("due-date")
+			dueDateStr, _ := cmd.Flags().GetString("due-date")
 			workerID, _ := cmd.Flags().GetInt("worker")
 			priority, _ := cmd.Flags().GetString("priority")
 			comment, _ := cmd.Flags().GetString("comment")
@@ -181,31 +194,33 @@ func newTasksCreateCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--project, --tasklist, and --name are required")
 			}
 
-			body := map[string]any{
-				"name": name,
-			}
-			if dueDate != "" {
-				body["due_date"] = dueDate
-			}
-			if workerID != 0 {
-				body["worker"] = map[string]any{"id": workerID}
-			}
-			if priority != "" {
-				body["priority"] = priority
-			}
-			if comment != "" {
-				body["comment"] = map[string]any{"content": comment}
+			dueDate, err := parseDueDate(dueDateStr)
+			if err != nil {
+				return err
 			}
 
-			path := fmt.Sprintf("/project/%d/tasklist/%d/tasks", projectID, tasklistID)
-			result, err := app.Client.Post(path, body)
+			body := freelo.TaskCreate{Name: name}
+			if dueDate != nil {
+				body.DueDate = dueDate
+			}
+			if workerID != 0 {
+				body.Worker = &workerID
+			}
+			if priority != "" {
+				p := freelo.TaskCreatePriorityEnum(priority)
+				body.PriorityEnum = &p
+			}
+			if comment != "" {
+				body.Comment = &struct {
+					Content *string `json:"content,omitempty"`
+				}{Content: &comment}
+			}
+
+			task, err := consumeAPIObject(app.FreeloClient.CreateTask(cmd.Context(), projectID, tasklistID, body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-
-			var task map[string]any
-			_ = json.Unmarshal(result, &task)
 
 			id := ""
 			if v, ok := task["id"]; ok {
@@ -235,36 +250,42 @@ func newTasksEditCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := args[0]
+			taskID := mustInt(args[0])
 
-			body := map[string]any{}
-			if name, _ := cmd.Flags().GetString("name"); name != "" {
-				body["name"] = name
+			body := freelo.EditTaskJSONBody{}
+			setAny := false
+			if v, _ := cmd.Flags().GetString("name"); v != "" {
+				body.Name = &v
+				setAny = true
 			}
-			if dueDate, _ := cmd.Flags().GetString("due-date"); dueDate != "" {
-				body["due_date"] = dueDate
+			if v, _ := cmd.Flags().GetString("due-date"); v != "" {
+				t, err := parseDueDate(v)
+				if err != nil {
+					return err
+				}
+				body.DueDate = t
+				setAny = true
 			}
-			if workerID, _ := cmd.Flags().GetInt("worker"); workerID != 0 {
-				body["worker"] = map[string]any{"id": workerID}
+			if v, _ := cmd.Flags().GetInt("worker"); v != 0 {
+				body.Worker = &v
+				setAny = true
 			}
-			if priority, _ := cmd.Flags().GetString("priority"); priority != "" {
-				body["priority_enum"] = priority
+			if v, _ := cmd.Flags().GetString("priority"); v != "" {
+				p := freelo.EditTaskJSONBodyPriorityEnum(v)
+				body.PriorityEnum = &p
+				setAny = true
 			}
-
-			if len(body) == 0 {
+			if !setAny {
 				return fmt.Errorf("at least one field to edit is required (--name, --due-date, --worker, --priority)")
 			}
 
-			result, err := app.Client.Post("/task/"+taskID, body)
+			task, err := consumeAPIObject(app.FreeloClient.EditTask(cmd.Context(), taskID, freelo.EditTaskJSONRequestBody(body)))
 			if err != nil {
 				out.Err(err, "edit_failed", "")
 				return err
 			}
 
-			var task map[string]any
-			_ = json.Unmarshal(result, &task)
-
-			out.OK(task, fmt.Sprintf("Task %s updated", taskID), nil)
+			out.OK(task, fmt.Sprintf("Task %d updated", taskID), nil)
 			return nil
 		},
 	}
@@ -282,15 +303,14 @@ func newTasksFinishCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := args[0]
+			taskID := mustInt(args[0])
 
-			_, err := app.Client.Post("/task/"+taskID+"/finish", nil)
-			if err != nil {
+			if _, err := consumeAPIObject(app.FreeloClient.FinishTask(cmd.Context(), taskID)); err != nil {
 				out.Err(err, "finish_failed", "")
 				return err
 			}
 
-			out.OK(map[string]any{"id": mustInt(taskID), "finished": true}, fmt.Sprintf("Task %s finished", taskID), nil)
+			out.OK(map[string]any{"id": taskID, "finished": true}, fmt.Sprintf("Task %d finished", taskID), nil)
 			return nil
 		},
 	}
@@ -303,15 +323,14 @@ func newTasksActivateCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := args[0]
+			taskID := mustInt(args[0])
 
-			_, err := app.Client.Post("/task/"+taskID+"/activate", nil)
-			if err != nil {
+			if _, err := consumeAPIObject(app.FreeloClient.ActivateTask(cmd.Context(), taskID)); err != nil {
 				out.Err(err, "activate_failed", "")
 				return err
 			}
 
-			out.OK(map[string]any{"id": mustInt(taskID), "activated": true}, fmt.Sprintf("Task %s activated", taskID), nil)
+			out.OK(map[string]any{"id": taskID, "activated": true}, fmt.Sprintf("Task %d activated", taskID), nil)
 			return nil
 		},
 	}
@@ -324,21 +343,20 @@ func newTasksMoveCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := args[0]
+			taskID := mustInt(args[0])
 			tasklistID, _ := cmd.Flags().GetInt("tasklist")
 
 			if tasklistID == 0 {
 				return fmt.Errorf("--tasklist is required")
 			}
 
-			path := fmt.Sprintf("/task/%s/move/%d", taskID, tasklistID)
-			_, err := app.Client.Post(path, nil)
+			_, err := consumeAPIObject(app.FreeloClient.MoveTask(cmd.Context(), taskID, tasklistID, freelo.MoveTaskJSONRequestBody{}))
 			if err != nil {
 				out.Err(err, "move_failed", "")
 				return err
 			}
 
-			out.OK(map[string]any{"id": mustInt(taskID), "moved_to_tasklist": tasklistID}, fmt.Sprintf("Task %s moved to tasklist %d", taskID, tasklistID), nil)
+			out.OK(map[string]any{"id": taskID, "moved_to_tasklist": tasklistID}, fmt.Sprintf("Task %d moved to tasklist %d", taskID, tasklistID), nil)
 			return nil
 		},
 	}
@@ -353,31 +371,24 @@ func newTasksDescriptionCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := args[0]
+			taskID := mustInt(args[0])
 			content, _ := cmd.Flags().GetString("set")
 
 			if content != "" {
-				// Set description
-				_, err := app.Client.Post("/task/"+taskID+"/description", map[string]any{
-					"content": content,
-				})
-				if err != nil {
+				body := freelo.EditTaskDescriptionJSONRequestBody{Content: content}
+				if _, err := consumeAPIObject(app.FreeloClient.EditTaskDescription(cmd.Context(), taskID, body)); err != nil {
 					out.Err(err, "set_description_failed", "")
 					return err
 				}
-				out.OK(map[string]any{"id": mustInt(taskID), "description_set": true}, "Description updated", nil)
+				out.OK(map[string]any{"id": taskID, "description_set": true}, "Description updated", nil)
 				return nil
 			}
 
-			// Get description
-			result, err := app.Client.Get("/task/" + taskID + "/description")
+			desc, err := consumeAPIObject(app.FreeloClient.GetTaskDescription(cmd.Context(), taskID))
 			if err != nil {
 				out.Err(err, "get_description_failed", "")
 				return err
 			}
-
-			var desc map[string]any
-			_ = json.Unmarshal(result, &desc)
 			out.OK(desc, "", nil)
 			return nil
 		},

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/freeloio/freelo-cli/internal/api"
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/auth"
 	"github.com/freeloio/freelo-cli/internal/config"
 	"github.com/freeloio/freelo-cli/internal/output"
@@ -9,12 +10,19 @@ import (
 )
 
 // App is the shared dependency container passed to all commands.
+//
+// During the Phase 3 migration both HTTP clients coexist: `Client` is the
+// legacy handwritten client that unmigrated commands still call, and
+// `FreeloClient` is the oapi-codegen-generated typed client used by commands
+// that have been migrated. Once every command is migrated, `Client` and
+// `internal/api/client.go` get deleted.
 type App struct {
-	Config  *config.Config
-	Auth    auth.Provider
-	Client  *api.Client
-	Output  func() *output.Writer
-	Version string
+	Config       *config.Config
+	Auth         auth.Provider
+	Client       *api.Client
+	FreeloClient *freelo.ClientWithResponses
+	Output       func() *output.Writer
+	Version      string
 }
 
 // AppGetter is a function that returns the App (resolved lazily after PersistentPreRun).
