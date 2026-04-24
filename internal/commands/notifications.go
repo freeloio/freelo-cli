@@ -2,13 +2,15 @@ package commands
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
 // NewNotificationsCmd creates the 'notifications' command group.
+//
+// Phase 3 migration: uses app.FreeloClient.
 func NewNotificationsCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "notifications",
@@ -34,25 +36,23 @@ func newNotificationsListCmd(app *App) *cobra.Command {
 			unreadOnly, _ := cmd.Flags().GetBool("unread")
 			page, _ := cmd.Flags().GetInt("page")
 
-			path := "/all-notifications"
-			params := []string{}
+			params := &freelo.GetAllNotificationsParams{}
 			if unreadOnly {
-				params = append(params, "only_unread=1")
+				t := true
+				params.OnlyUnread = &t
 			}
 			if page > 0 {
-				params = append(params, fmt.Sprintf("p=%d", page))
-			}
-			if len(params) > 0 {
-				path += "?" + strings.Join(params, "&")
+				p := freelo.PageParam(page)
+				params.P = &p
 			}
 
-			result, err := app.Client.Get(path)
+			body, err := consumeAPIBody(app.FreeloClient.GetAllNotifications(cmd.Context(), params))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
 
-			notifications, _ := parsePaginatedItems(result)
+			notifications, _ := parsePaginatedItems(body)
 
 			out.OK(notifications, fmt.Sprintf("%d notifications", len(notifications)), []output.Breadcrumb{
 				{Action: "read", Cmd: "freelo notifications read <id>", Description: "Mark as read"},
@@ -72,15 +72,14 @@ func newNotificationsReadCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			notifID := args[0]
+			notifID := mustInt(args[0])
 
-			_, err := app.Client.Post("/notification/"+notifID+"/mark-as-read", nil)
-			if err != nil {
+			if _, err := consumeAPIObject(app.FreeloClient.MarkNotificationAsRead(cmd.Context(), notifID)); err != nil {
 				out.Err(err, "mark_read_failed", "")
 				return err
 			}
 
-			out.OK(map[string]any{"id": mustInt(notifID), "read": true}, "Marked as read", nil)
+			out.OK(map[string]any{"id": notifID, "read": true}, "Marked as read", nil)
 			return nil
 		},
 	}
@@ -93,15 +92,14 @@ func newNotificationsUnreadCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			notifID := args[0]
+			notifID := mustInt(args[0])
 
-			_, err := app.Client.Post("/notification/"+notifID+"/mark-as-unread", nil)
-			if err != nil {
+			if _, err := consumeAPIObject(app.FreeloClient.MarkNotificationAsUnread(cmd.Context(), notifID)); err != nil {
 				out.Err(err, "mark_unread_failed", "")
 				return err
 			}
 
-			out.OK(map[string]any{"id": mustInt(notifID), "unread": true}, "Marked as unread", nil)
+			out.OK(map[string]any{"id": notifID, "unread": true}, "Marked as unread", nil)
 			return nil
 		},
 	}
