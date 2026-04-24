@@ -25,7 +25,7 @@ Full plan lives in auto-memory (`project_freelo_cli_goal.md`). Short version:
 | 1 | Cleanup + foundation (this file, CI, version) | done |
 | 2 | Integration + unit test harness | done |
 | 3 | `oapi-codegen` migration (replace handwritten client) | done |
-| 4 | Rewrite embedded SKILL.md for CLI users | pending |
+| 4 | Rewrite embedded SKILL.md for CLI users | done |
 | 5 | OS keyring, goreleaser dry-run, docs polish | pending |
 | 6 | Public launch v1.0.0 + Homebrew tap | pending |
 | 7 | OAuth (deferred — see below) | blocked on Freelo backend |
@@ -59,8 +59,15 @@ internal/
   output/output.go       envelope pattern — Format{Auto,JSON,Agent,Quiet,IDs,Count}
 skills/
   embed.go               go:embed the SKILL.md bundled into the binary
-  freelo/SKILL.md        224-line legacy skill (Phase 4 will rewrite from the
-                         1613-line public skill, translating curl → freelo syntax)
+  freelo/SKILL.md        759-line CLI-native skill. Derived from the 1659-line
+                         public claude-freelo-skill (github.com/freeloio/
+                         claude-freelo-skill) by translating curl examples
+                         to freelo commands and collapsing API workarounds
+                         the CLI already handles (auth, pagination, UA,
+                         rate limit, retry). All server-side gotchas —
+                         color whitelist, HTML sanitization, subtask
+                         task_id mismatch, /users/me wrapping, onboarding
+                         project invisibility — kept and documented.
 spec/freelo-api.yaml     vendored OpenAPI 3.0.3 spec (6205 lines, 90 paths) —
                          patched: schema `Client` → `BusinessClient` so it
                          does not collide with oapi-codegen's HTTP `Client` type
