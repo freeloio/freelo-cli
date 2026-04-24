@@ -6,7 +6,7 @@ INSTALL_DIR = $(HOME)/bin
 
 ## build: Build the freelo binary
 build:
-	go build -ldflags "-s -w -X github.com/freeloapp/freelo-cli/internal/cli.Version=$(VERSION)" -o $(BINARY) ./cmd/freelo/
+	go build -ldflags "-s -w -X github.com/freeloio/freelo-cli/internal/cli.Version=$(VERSION)" -o $(BINARY) ./cmd/freelo/
 
 ## install: Build and install to ~/bin
 install: build

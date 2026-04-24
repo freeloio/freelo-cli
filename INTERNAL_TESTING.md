@@ -8,7 +8,7 @@ Tento dokument popisuje jak si nainstalovat, otestovat a používat Freelo CLI i
 
 ```bash
 # Naklonovat repo
-git clone git@github.com:freeloapp/freelo-cli.git
+git clone git@github.com:freeloio/freelo-cli.git
 cd freelo-cli
 
 # Build + instalace do ~/bin (bez sudo)
@@ -27,14 +27,14 @@ freelo version
 ### Varianta B: Přímý Go install
 
 ```bash
-go install github.com/freeloapp/freelo-cli/cmd/freelo@latest
+go install github.com/freeloio/freelo-cli/cmd/freelo@latest
 ```
 
 > Vyžaduje Go 1.21+. Binary se nainstaluje do `$GOPATH/bin/`.
 
 ### Varianta C: Stáhnout binary manuálně
 
-1. Jít na https://github.com/freeloapp/freelo-cli/releases
+1. Jít na https://github.com/freeloio/freelo-cli/releases
 2. Stáhnout archiv pro svůj OS (darwin_arm64 pro Apple Silicon Mac)
 3. Rozbalit a přesunout `freelo` do PATH
 
@@ -256,7 +256,7 @@ Když najdeš bug nebo něco nefunguje:
 1. Zapiš **příkaz** co jsi spustil
 2. Zapiš **výstup** (ideálně s `--agent` pro přesný JSON)
 3. Zapiš **co jsi očekával**
-4. Vytvoř issue na https://github.com/freeloapp/freelo-cli/issues
+4. Vytvoř issue na https://github.com/freeloio/freelo-cli/issues
 
 Příklad:
 ```

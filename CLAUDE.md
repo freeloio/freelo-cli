@@ -9,8 +9,8 @@ It lets humans **and AI agents** manage projects, tasks, time tracking, comments
 files, reports, etc. from the terminal.
 
 - **Language:** Go (`1.26.2`, minimal deps — Cobra + `x/term`)
-- **Module path:** `github.com/freeloapp/freelo-cli` *(repo will likely migrate to
-  `freeloio` in Phase 6; until then keep imports as-is)*
+- **Module path:** `github.com/freeloio/freelo-cli` (same org as the skill;
+  org was consolidated from `freeloapp` in Phase 1 while the repo was still private)
 - **Sibling project:** [`claude-freelo-skill`](https://github.com/freeloio/claude-freelo-skill) —
   the public Claude Code skill (shipped v1.0.0). Users who install both get
   skill-level knowledge of the API plus a typed CLI to execute against it.
@@ -118,7 +118,7 @@ Highlights the CLI must respect:
 Version is injected at build time via ldflags:
 
 ```
--X github.com/freeloapp/freelo-cli/internal/cli.Version=v1.0.0-dev
+-X github.com/freeloio/freelo-cli/internal/cli.Version=v1.0.0-dev
 ```
 
 Default fallback (when built without ldflags) should always reflect the
@@ -142,7 +142,6 @@ is what unaware builds pick up.
 
 ## What to **not** do without asking
 
-- Don't migrate the module path `freeloapp → freeloio`. That's a Phase 6 decision.
 - Don't rewrite `internal/output/` envelope pattern. It's stable on purpose.
 - Don't re-open the OAuth scope unless the user brings new info from the Freelo
   backend team (dedicated client_id provisioned, partner program opened, etc.).

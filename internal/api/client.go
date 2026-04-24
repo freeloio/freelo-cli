@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/freeloapp/freelo-cli/internal/auth"
-	"github.com/freeloapp/freelo-cli/internal/config"
+	"github.com/freeloio/freelo-cli/internal/auth"
+	"github.com/freeloio/freelo-cli/internal/config"
 )
 
 // Client handles all HTTP communication with the Freelo API.

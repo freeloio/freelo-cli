@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/freeloapp/freelo-cli/skills"
+	"github.com/freeloio/freelo-cli/skills"
 	"github.com/spf13/cobra"
 )
 

@@ -12,7 +12,7 @@ builds:
       - CGO_ENABLED=0
     ldflags:
       - -s -w
-      - -X github.com/freeloapp/freelo-cli/internal/cli.Version={{.Version}}
+      - -X github.com/freeloio/freelo-cli/internal/cli.Version={{.Version}}
     goos:
       - darwin
       - linux
@@ -42,7 +42,7 @@ changelog:
 
 release:
   github:
-    owner: freeloapp
+    owner: freeloio
     name: freelo-cli
   draft: true  # Start as draft for internal review
   prerelease: auto
@@ -51,7 +51,7 @@ release:
 brews:
   - name: freelo
     repository:
-      owner: freeloapp
+      owner: freeloio
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula

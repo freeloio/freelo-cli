@@ -5,11 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/freeloapp/freelo-cli/internal/api"
-	"github.com/freeloapp/freelo-cli/internal/auth"
-	"github.com/freeloapp/freelo-cli/internal/commands"
-	"github.com/freeloapp/freelo-cli/internal/config"
-	"github.com/freeloapp/freelo-cli/internal/output"
+	"github.com/freeloio/freelo-cli/internal/api"
+	"github.com/freeloio/freelo-cli/internal/auth"
+	"github.com/freeloio/freelo-cli/internal/commands"
+	"github.com/freeloio/freelo-cli/internal/config"
+	"github.com/freeloio/freelo-cli/internal/output"
 )
 
 // Version is set at build time via ldflags.

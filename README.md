@@ -8,7 +8,7 @@ Full access to [Freelo](https://www.freelo.io) from your terminal. `freelo` is t
 
 ```bash
 # Install
-curl -fsSL https://raw.githubusercontent.com/freeloapp/freelo-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/freeloio/freelo-cli/main/install.sh | bash
 
 # Authenticate
 freelo auth login
@@ -24,24 +24,24 @@ freelo search "keyword"
 ### curl (macOS / Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/freeloapp/freelo-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/freeloio/freelo-cli/main/install.sh | bash
 ```
 
 ### Homebrew (macOS / Linux)
 
 ```bash
-brew install freeloapp/tap/freelo
+brew install freeloio/tap/freelo
 ```
 
 ### Go install
 
 ```bash
-go install github.com/freeloapp/freelo-cli/cmd/freelo@latest
+go install github.com/freeloio/freelo-cli/cmd/freelo@latest
 ```
 
 ### Manual download
 
-Download the latest binary for your platform from [GitHub Releases](https://github.com/freeloapp/freelo-cli/releases).
+Download the latest binary for your platform from [GitHub Releases](https://github.com/freeloio/freelo-cli/releases).
 
 ## Authentication
 

@@ -1,4 +1,4 @@
-module github.com/freeloapp/freelo-cli
+module github.com/freeloio/freelo-cli
 
 go 1.26.2
 

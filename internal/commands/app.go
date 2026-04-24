@@ -1,10 +1,10 @@
 package commands
 
 import (
-	"github.com/freeloapp/freelo-cli/internal/api"
-	"github.com/freeloapp/freelo-cli/internal/auth"
-	"github.com/freeloapp/freelo-cli/internal/config"
-	"github.com/freeloapp/freelo-cli/internal/output"
+	"github.com/freeloio/freelo-cli/internal/api"
+	"github.com/freeloio/freelo-cli/internal/auth"
+	"github.com/freeloio/freelo-cli/internal/config"
+	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 

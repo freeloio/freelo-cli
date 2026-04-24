@@ -1,12 +1,12 @@
 #!/bin/bash
 # Freelo CLI installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/freeloapp/freelo-cli/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/freeloio/freelo-cli/main/install.sh | bash
 #
 # SECURITY: Entire script is wrapped in a block to prevent partial-download execution.
 {
 set -euo pipefail
 
-REPO="freeloapp/freelo-cli"
+REPO="freeloio/freelo-cli"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="freelo"
 
