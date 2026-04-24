@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
 // NewProjectsCmd creates the 'projects' command group.
+//
+// Phase 3 migration: subcommands use app.FreeloClient. See tasks.go for
+// the overall approach (raw *http.Response methods, not *WithResponse).
 func NewProjectsCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "projects",
@@ -36,18 +40,17 @@ func newProjectsListCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 
-			result, err := app.Client.Get("/projects")
+			body, err := consumeAPIBody(app.FreeloClient.GetProjects(cmd.Context(), nil))
 			if err != nil {
 				out.Err(err, "api_error", "Check your authentication with 'freelo auth status'")
 				return err
 			}
 
 			var projects []map[string]any
-			if err := json.Unmarshal(result, &projects); err != nil {
+			if err := json.Unmarshal(body, &projects); err != nil {
 				return err
 			}
 
-			// Simplify for display
 			simplified := make([]map[string]any, 0, len(projects))
 			for _, p := range projects {
 				item := map[string]any{
@@ -82,26 +85,22 @@ func newProjectsShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			projectID := args[0]
+			projectID := mustInt(args[0])
 
-			result, err := app.Client.Get("/project/" + projectID)
+			project, err := consumeAPIObject(app.FreeloClient.GetProject(cmd.Context(), projectID))
 			if err != nil {
 				out.Err(err, "not_found", "Check the project ID with 'freelo projects list'")
 				return err
 			}
 
-			var project map[string]any
-			_ = json.Unmarshal(result, &project)
-
-			id := projectID
 			name := ""
 			if n, ok := project["name"].(string); ok {
 				name = n
 			}
 
 			out.OK(project, name, []output.Breadcrumb{
-				{Action: "tasks", Cmd: fmt.Sprintf("freelo tasks list --project %s", id), Description: "List tasks in project"},
-				{Action: "tasklists", Cmd: fmt.Sprintf("freelo tasklists list --project %s", id), Description: "List tasklists"},
+				{Action: "tasks", Cmd: fmt.Sprintf("freelo tasks list --project %d", projectID), Description: "List tasks in project"},
+				{Action: "tasklists", Cmd: fmt.Sprintf("freelo tasklists list --project %d", projectID), Description: "List tasklists"},
 			})
 			return nil
 		},
@@ -121,22 +120,23 @@ func newProjectsCreateCmd(app *App) *cobra.Command {
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
-
-			body := map[string]any{
-				"name": name,
+			if currency == "" {
+				// The OpenAPI spec marks currency_iso as required. Freelo's
+				// default for Czech users is CZK; document the default rather
+				// than send an empty string the server would reject.
+				currency = "CZK"
 			}
-			if currency != "" {
-				body["currency_iso"] = currency
+
+			body := freelo.CreateProjectJSONRequestBody{
+				Name:        name,
+				CurrencyIso: freelo.CreateProjectJSONBodyCurrencyIso(currency),
 			}
 
-			result, err := app.Client.Post("/projects", body)
+			project, err := consumeAPIObject(app.FreeloClient.CreateProject(cmd.Context(), body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-
-			var project map[string]any
-			_ = json.Unmarshal(result, &project)
 
 			id := ""
 			if v, ok := project["id"]; ok {
@@ -151,7 +151,7 @@ func newProjectsCreateCmd(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "Project name (required)")
-	cmd.Flags().String("currency", "", "Currency ISO code (CZK, EUR, USD)")
+	cmd.Flags().String("currency", "", "Currency ISO code (defaults to CZK if not set)")
 	return cmd
 }
 
@@ -162,15 +162,14 @@ func newProjectsArchiveCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			projectID := args[0]
+			projectID := mustInt(args[0])
 
-			_, err := app.Client.Post("/project/"+projectID+"/archive", nil)
-			if err != nil {
+			if _, err := consumeAPIObject(app.FreeloClient.ArchiveProject(cmd.Context(), projectID)); err != nil {
 				out.Err(err, "archive_failed", "")
 				return err
 			}
 
-			out.OK(map[string]any{"id": mustInt(projectID), "archived": true}, fmt.Sprintf("Project %s archived", projectID), nil)
+			out.OK(map[string]any{"id": projectID, "archived": true}, fmt.Sprintf("Project %d archived", projectID), nil)
 			return nil
 		},
 	}
@@ -183,15 +182,14 @@ func newProjectsActivateCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			projectID := args[0]
+			projectID := mustInt(args[0])
 
-			_, err := app.Client.Post("/project/"+projectID+"/activate", nil)
-			if err != nil {
+			if _, err := consumeAPIObject(app.FreeloClient.ActivateProject(cmd.Context(), projectID)); err != nil {
 				out.Err(err, "activate_failed", "")
 				return err
 			}
 
-			out.OK(map[string]any{"id": mustInt(projectID), "activated": true}, fmt.Sprintf("Project %s activated", projectID), nil)
+			out.OK(map[string]any{"id": projectID, "activated": true}, fmt.Sprintf("Project %d activated", projectID), nil)
 			return nil
 		},
 	}
@@ -204,20 +202,21 @@ func newProjectsDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			projectID := args[0]
+			projectID := mustInt(args[0])
 
-			_, err := app.Client.Delete("/project/" + projectID)
-			if err != nil {
+			if _, err := consumeAPIObject(app.FreeloClient.DeleteProject(cmd.Context(), projectID)); err != nil {
 				out.Err(err, "delete_failed", "")
 				return err
 			}
 
-			out.OK(map[string]any{"id": mustInt(projectID), "deleted": true}, fmt.Sprintf("Project %s deleted", projectID), nil)
+			out.OK(map[string]any{"id": projectID, "deleted": true}, fmt.Sprintf("Project %d deleted", projectID), nil)
 			return nil
 		},
 	}
 }
 
+// mustInt is shared with other command groups; kept here because this is
+// where it was originally defined.
 func mustInt(s string) int {
 	v, _ := strconv.Atoi(s)
 	return v
