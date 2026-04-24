@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -31,13 +31,12 @@ func newTemplatesListCmd(app *App) *cobra.Command {
 		Short: "List template projects",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			result, err := app.Client.Get("/template-projects")
+			body, err := consumeAPIBody(app.FreeloClient.GetTemplateProjects(cmd.Context(), &freelo.GetTemplateProjectsParams{}))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
-
-			templates, _ := parsePaginatedItems(result)
+			templates, _ := parsePaginatedItems(body)
 
 			simplified := make([]map[string]any, 0, len(templates))
 			for _, t := range templates {
@@ -68,15 +67,13 @@ func newTemplatesCreateProjectCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--template and --name are required")
 			}
 
-			body := map[string]any{"name": name}
+			body := freelo.CreateProjectFromTemplateJSONRequestBody{Name: &name}
 
-			result, err := app.Client.Post(fmt.Sprintf("/project/create-from-template/%d", templateID), body)
+			project, err := consumeAPIObject(app.FreeloClient.CreateProjectFromTemplate(cmd.Context(), templateID, body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-			var project map[string]any
-			_ = json.Unmarshal(result, &project)
 			out.OK(project, fmt.Sprintf("Project '%s' created from template", name), nil)
 			return nil
 		},
@@ -98,13 +95,15 @@ func newTemplatesCreateTasklistCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--template is required")
 			}
 
-			result, err := app.Client.Post(fmt.Sprintf("/tasklist/create-from-template/%d", templateID), nil)
+			// The typed body duplicates the template ID (TasklistId required
+			// non-pointer). Pass it through in both places.
+			body := freelo.CreateTasklistFromTemplateJSONRequestBody{TasklistId: templateID}
+
+			tasklist, err := consumeAPIObject(app.FreeloClient.CreateTasklistFromTemplate(cmd.Context(), templateID, body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-			var tasklist map[string]any
-			_ = json.Unmarshal(result, &tasklist)
 			out.OK(tasklist, "Tasklist created from template", nil)
 			return nil
 		},
@@ -125,13 +124,13 @@ func newTemplatesCreateTaskCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--template is required")
 			}
 
-			result, err := app.Client.Post(fmt.Sprintf("/task/create-from-template/%d", templateID), nil)
+			body := freelo.CreateTaskFromTemplateJSONRequestBody{TaskId: templateID}
+
+			task, err := consumeAPIObject(app.FreeloClient.CreateTaskFromTemplate(cmd.Context(), templateID, body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-			var task map[string]any
-			_ = json.Unmarshal(result, &task)
 			out.OK(task, "Task created from template", nil)
 			return nil
 		},
