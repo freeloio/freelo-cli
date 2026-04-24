@@ -1,10 +1,11 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/spf13/cobra"
 )
 
@@ -35,13 +36,13 @@ func newWorkersListCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--project is required")
 			}
 
-			result, err := app.Client.Get(fmt.Sprintf("/project/%d/workers", projectID))
+			body, err := consumeAPIBody(app.FreeloClient.GetProjectWorkers(cmd.Context(), projectID, &freelo.GetProjectWorkersParams{}))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
 
-			workers, _ := parsePaginatedItems(result)
+			workers, _ := parsePaginatedItems(body)
 
 			simplified := make([]map[string]any, 0, len(workers))
 			for _, w := range workers {
@@ -60,43 +61,54 @@ func newWorkersListCmd(app *App) *cobra.Command {
 	return cmd
 }
 
+// parseEmails splits a comma-separated list and wraps each into the typed
+// openapi_types.Email. Empty tokens are skipped.
+func parseEmails(s string) []openapi_types.Email {
+	parts := strings.Split(s, ",")
+	out := make([]openapi_types.Email, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, openapi_types.Email(p))
+		}
+	}
+	return out
+}
+
 func newWorkersInviteCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "invite",
 		Short: "Invite users to projects",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			emails, _ := cmd.Flags().GetString("emails")
-			projectIDs, _ := cmd.Flags().GetString("projects")
+			emailsStr, _ := cmd.Flags().GetString("emails")
+			projectsStr, _ := cmd.Flags().GetString("projects")
 
-			if emails == "" || projectIDs == "" {
+			if emailsStr == "" || projectsStr == "" {
 				return fmt.Errorf("--emails and --projects are required")
 			}
 
-			emailList := strings.Split(emails, ",")
-			for i := range emailList {
-				emailList[i] = strings.TrimSpace(emailList[i])
-			}
+			emails := parseEmails(emailsStr)
 
-			projectList := strings.Split(projectIDs, ",")
+			projectList := strings.Split(projectsStr, ",")
 			projectInts := make([]int, 0, len(projectList))
 			for _, p := range projectList {
-				projectInts = append(projectInts, mustInt(strings.TrimSpace(p)))
+				if v := mustInt(strings.TrimSpace(p)); v != 0 {
+					projectInts = append(projectInts, v)
+				}
 			}
 
-			body := map[string]any{
-				"emails":       emailList,
-				"projects_ids": projectInts,
+			body := freelo.InviteUsersToProjectsJSONRequestBody{
+				Emails:      &emails,
+				ProjectsIds: projectInts,
 			}
 
-			result, err := app.Client.Post("/users/manage-workers", body)
+			resp, err := consumeAPIObject(app.FreeloClient.InviteUsersToProjects(cmd.Context(), body))
 			if err != nil {
 				out.Err(err, "invite_failed", "")
 				return err
 			}
-			var resp any
-			_ = json.Unmarshal(result, &resp)
-			out.OK(resp, fmt.Sprintf("Invited %d users to %d projects", len(emailList), len(projectInts)), nil)
+			out.OK(resp, fmt.Sprintf("Invited %d users to %d projects", len(emails), len(projectInts)), nil)
 			return nil
 		},
 	}
@@ -112,26 +124,21 @@ func newWorkersRemoveCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 			projectID, _ := cmd.Flags().GetInt("project")
-			emails, _ := cmd.Flags().GetString("emails")
+			emailsStr, _ := cmd.Flags().GetString("emails")
 
-			if projectID == 0 || emails == "" {
+			if projectID == 0 || emailsStr == "" {
 				return fmt.Errorf("--project and --emails are required")
 			}
 
-			emailList := strings.Split(emails, ",")
-			for i := range emailList {
-				emailList[i] = strings.TrimSpace(emailList[i])
+			body := freelo.RemoveProjectWorkersByEmailsJSONRequestBody{
+				UsersEmails: parseEmails(emailsStr),
 			}
 
-			result, err := app.Client.Post(fmt.Sprintf("/project/%d/remove-workers/by-emails", projectID), map[string]any{
-				"emails": emailList,
-			})
+			resp, err := consumeAPIObject(app.FreeloClient.RemoveProjectWorkersByEmails(cmd.Context(), projectID, body))
 			if err != nil {
 				out.Err(err, "remove_failed", "")
 				return err
 			}
-			var resp any
-			_ = json.Unmarshal(result, &resp)
 			out.OK(resp, fmt.Sprintf("Workers removed from project %d", projectID), nil)
 			return nil
 		},
