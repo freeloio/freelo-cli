@@ -1,10 +1,11 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
-	"strings"
+	"time"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +27,19 @@ func NewReportsCmd(app *App) *cobra.Command {
 	return cmd
 }
 
+// parseOpenAPIDate turns "YYYY-MM-DD" into the generated *openapi_types.Date,
+// or nil on empty. Returns an error on malformed input.
+func parseOpenAPIDate(s, flag string) (*openapi_types.Date, error) {
+	if s == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --%s %q, want YYYY-MM-DD", flag, s)
+	}
+	return &openapi_types.Date{Time: t}, nil
+}
+
 func newReportsListCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -36,28 +50,27 @@ func newReportsListCmd(app *App) *cobra.Command {
 			userID, _ := cmd.Flags().GetInt("user")
 			page, _ := cmd.Flags().GetInt("page")
 
-			path := "/work-reports"
-			params := []string{}
+			params := &freelo.GetWorkReportsParams{}
 			if projectID != 0 {
-				params = append(params, fmt.Sprintf("projects_ids[]=%d", projectID))
+				ids := []int{projectID}
+				params.ProjectsIds = &ids
 			}
 			if userID != 0 {
-				params = append(params, fmt.Sprintf("users_ids[]=%d", userID))
+				ids := []int{userID}
+				params.UsersIds = &ids
 			}
 			if page > 0 {
-				params = append(params, fmt.Sprintf("p=%d", page))
-			}
-			if len(params) > 0 {
-				path += "?" + strings.Join(params, "&")
+				p := freelo.PageParam(page)
+				params.P = &p
 			}
 
-			result, err := app.Client.Get(path)
+			body, err := consumeAPIBody(app.FreeloClient.GetWorkReports(cmd.Context(), params))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
 
-			reports, _ := parsePaginatedItems(result)
+			reports, _ := parsePaginatedItems(body)
 
 			simplified := make([]map[string]any, 0, len(reports))
 			for _, r := range reports {
@@ -81,7 +94,7 @@ func newReportsListCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
 	cmd.Flags().Int("user", 0, "Filter by user ID")
-	cmd.Flags().Int("page", 0, "Page number")
+	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
 	return cmd
 }
 
@@ -94,7 +107,7 @@ func newReportsCreateCmd(app *App) *cobra.Command {
 
 			taskID, _ := cmd.Flags().GetInt("task")
 			minutes, _ := cmd.Flags().GetInt("minutes")
-			date, _ := cmd.Flags().GetString("date")
+			dateStr, _ := cmd.Flags().GetString("date")
 			note, _ := cmd.Flags().GetString("note")
 			workerID, _ := cmd.Flags().GetInt("worker")
 
@@ -102,28 +115,27 @@ func newReportsCreateCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--task and --minutes are required")
 			}
 
-			body := map[string]any{
-				"minutes": minutes,
-			}
-			if date != "" {
-				body["date_reported"] = date
-			}
-			if note != "" {
-				body["note"] = note
-			}
-			if workerID != 0 {
-				body["worker_id"] = workerID
+			date, err := parseOpenAPIDate(dateStr, "date")
+			if err != nil {
+				return err
 			}
 
-			path := fmt.Sprintf("/task/%d/work-reports", taskID)
-			result, err := app.Client.Post(path, body)
+			body := freelo.CreateWorkReportJSONRequestBody{Minutes: minutes}
+			if date != nil {
+				body.DateReported = date
+			}
+			if note != "" {
+				body.Note = &note
+			}
+			if workerID != 0 {
+				body.WorkerId = &workerID
+			}
+
+			report, err := consumeAPIObject(app.FreeloClient.CreateWorkReport(cmd.Context(), taskID, body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-
-			var report map[string]any
-			_ = json.Unmarshal(result, &report)
 
 			out.OK(report, fmt.Sprintf("Work report created: %d minutes", minutes), nil)
 			return nil
@@ -144,33 +156,37 @@ func newReportsEditCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			reportID := args[0]
+			reportID := mustInt(args[0])
 
-			body := map[string]any{}
+			body := freelo.EditWorkReportJSONRequestBody{}
+			setAny := false
 			if minutes, _ := cmd.Flags().GetInt("minutes"); minutes != 0 {
-				body["minutes"] = minutes
+				body.Minutes = &minutes
+				setAny = true
 			}
-			if date, _ := cmd.Flags().GetString("date"); date != "" {
-				body["date_reported"] = date
+			if dateStr, _ := cmd.Flags().GetString("date"); dateStr != "" {
+				d, err := parseOpenAPIDate(dateStr, "date")
+				if err != nil {
+					return err
+				}
+				body.DateReported = d
+				setAny = true
 			}
 			if note, _ := cmd.Flags().GetString("note"); note != "" {
-				body["note"] = note
+				body.Note = &note
+				setAny = true
 			}
-
-			if len(body) == 0 {
+			if !setAny {
 				return fmt.Errorf("at least one field to edit is required")
 			}
 
-			result, err := app.Client.Post("/work-reports/"+reportID, body)
+			report, err := consumeAPIObject(app.FreeloClient.EditWorkReport(cmd.Context(), reportID, body))
 			if err != nil {
 				out.Err(err, "edit_failed", "")
 				return err
 			}
 
-			var report map[string]any
-			_ = json.Unmarshal(result, &report)
-
-			out.OK(report, fmt.Sprintf("Report %s updated", reportID), nil)
+			out.OK(report, fmt.Sprintf("Report %d updated", reportID), nil)
 			return nil
 		},
 	}
@@ -187,15 +203,14 @@ func newReportsDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			reportID := args[0]
+			reportID := mustInt(args[0])
 
-			_, err := app.Client.Delete("/work-reports/" + reportID)
-			if err != nil {
+			if _, err := consumeAPIObject(app.FreeloClient.DeleteWorkReport(cmd.Context(), reportID)); err != nil {
 				out.Err(err, "delete_failed", "")
 				return err
 			}
 
-			out.OK(map[string]any{"id": mustInt(reportID), "deleted": true}, fmt.Sprintf("Report %s deleted", reportID), nil)
+			out.OK(map[string]any{"id": reportID, "deleted": true}, fmt.Sprintf("Report %d deleted", reportID), nil)
 			return nil
 		},
 	}
