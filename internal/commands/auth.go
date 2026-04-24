@@ -2,7 +2,6 @@ package commands
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -58,19 +57,17 @@ Alternatively, set FREELO_EMAIL and FREELO_API_KEY environment variables.`,
 				return fmt.Errorf("email and API key are required")
 			}
 
-			// Verify credentials by calling /users/me
+			// Verify credentials by calling /users/me. Store first so the
+			// FreeloClient's per-request auth editor picks them up.
 			if err := app.Auth.Store(email, apiKey); err != nil {
 				return err
 			}
 
-			result, err := app.Client.Get("/users/me")
+			resp, err := consumeAPIObject(app.FreeloClient.GetUsersMe(cmd.Context()))
 			if err != nil {
 				_ = app.Auth.Clear()
 				return fmt.Errorf("authentication failed: %w", err)
 			}
-
-			var resp map[string]any
-			_ = json.Unmarshal(result, &resp)
 
 			// API returns {"result":"success","user":{"id":N}} or {"id":N,"fullname":"..."}
 			user := resp
@@ -127,7 +124,7 @@ func newAuthStatusCmd(app *App) *cobra.Command {
 				return nil
 			}
 
-			result, err := app.Client.Get("/users/me")
+			resp, err := consumeAPIObject(app.FreeloClient.GetUsersMe(cmd.Context()))
 			if err != nil {
 				out.OK(map[string]any{
 					"authenticated": false,
@@ -137,9 +134,6 @@ func newAuthStatusCmd(app *App) *cobra.Command {
 				})
 				return nil
 			}
-
-			var resp map[string]any
-			_ = json.Unmarshal(result, &resp)
 
 			user := resp
 			if u, ok := resp["user"].(map[string]any); ok {
