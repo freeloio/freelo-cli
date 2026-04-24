@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/spf13/cobra"
 )
 
@@ -33,14 +34,13 @@ func newPinnedListCmd(app *App) *cobra.Command {
 			if projectID == 0 {
 				return fmt.Errorf("--project is required")
 			}
-
-			result, err := app.Client.Get(fmt.Sprintf("/project/%d/pinned-items", projectID))
+			body, err := consumeAPIBody(app.FreeloClient.GetPinnedItems(cmd.Context(), projectID))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
-			var items []map[string]any
-			_ = json.Unmarshal(result, &items)
+			items := make([]map[string]any, 0)
+			_ = json.Unmarshal(body, &items)
 			out.OK(items, fmt.Sprintf("%d pinned items", len(items)), nil)
 			return nil
 		},
@@ -63,18 +63,16 @@ func newPinnedCreateCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--project and --link are required")
 			}
 
-			body := map[string]any{"link": link}
+			body := freelo.PinItemToProjectJSONRequestBody{Link: link}
 			if title != "" {
-				body["title"] = title
+				body.Title = &title
 			}
 
-			result, err := app.Client.Post(fmt.Sprintf("/project/%d/pinned-items", projectID), body)
+			item, err := consumeAPIObject(app.FreeloClient.PinItemToProject(cmd.Context(), projectID, body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-			var item map[string]any
-			_ = json.Unmarshal(result, &item)
 			out.OK(item, "Item pinned", nil)
 			return nil
 		},
@@ -92,12 +90,12 @@ func newPinnedDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			_, err := app.Client.Delete("/pinned-item/" + args[0])
-			if err != nil {
+			id := mustInt(args[0])
+			if _, err := consumeAPIObject(app.FreeloClient.DeletePinnedItem(cmd.Context(), id)); err != nil {
 				out.Err(err, "delete_failed", "")
 				return err
 			}
-			out.OK(map[string]any{"id": mustInt(args[0]), "deleted": true}, "Pinned item removed", nil)
+			out.OK(map[string]any{"id": id, "deleted": true}, "Pinned item removed", nil)
 			return nil
 		},
 	}
