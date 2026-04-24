@@ -2,17 +2,19 @@ package commands
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
+
+const maxUploadSize = 100 * 1024 * 1024
 
 func NewFilesCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
@@ -40,36 +42,34 @@ func newFilesListCmd(app *App) *cobra.Command {
 			fileType, _ := cmd.Flags().GetString("type")
 			page, _ := cmd.Flags().GetInt("page")
 
-			path := "/all-docs-and-files"
-			params := []string{}
+			params := &freelo.GetAllDocsAndFilesParams{}
 			if projectID != 0 {
-				params = append(params, fmt.Sprintf("projects_ids[]=%d", projectID))
+				ids := []int{projectID}
+				params.ProjectsIds = &ids
 			}
 			if fileType != "" {
-				params = append(params, "type="+fileType)
+				t := freelo.GetAllDocsAndFilesParamsType(fileType)
+				params.Type = &t
 			}
 			if page > 0 {
-				params = append(params, fmt.Sprintf("p=%d", page))
-			}
-			if len(params) > 0 {
-				path += "?" + strings.Join(params, "&")
+				p := freelo.PageParam(page)
+				params.P = &p
 			}
 
-			result, err := app.Client.Get(path)
+			body, err := consumeAPIBody(app.FreeloClient.GetAllDocsAndFiles(cmd.Context(), params))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
 
-			items, _ := parsePaginatedItems(result)
-
+			items, _ := parsePaginatedItems(body)
 			out.OK(items, fmt.Sprintf("%d items", len(items)), nil)
 			return nil
 		},
 	}
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
 	cmd.Flags().String("type", "", "Filter: directory, link, file, document")
-	cmd.Flags().Int("page", 0, "Page number")
+	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
 	return cmd
 }
 
@@ -80,20 +80,15 @@ func newFilesDownloadCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			fileUUID := args[0]
+			fileUUIDStr := args[0]
 			outputPath, _ := cmd.Flags().GetString("output")
 
-			email, secret, err := app.Auth.GetCredentials()
+			fileUUID, err := uuid.Parse(fileUUIDStr)
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid file UUID: %w", err)
 			}
 
-			url := app.Config.BaseURL + "/file/" + fileUUID
-			req, _ := http.NewRequest("GET", url, nil)
-			req.SetBasicAuth(email, secret)
-			req.Header.Set("User-Agent", "FreeloCLI")
-
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := app.FreeloClient.DownloadFile(cmd.Context(), fileUUID)
 			if err != nil {
 				out.Err(err, "download_failed", "")
 				return err
@@ -105,21 +100,20 @@ func newFilesDownloadCmd(app *App) *cobra.Command {
 			}
 
 			if outputPath == "" {
-				// Try to get filename from Content-Disposition
+				// Derive from Content-Disposition when available; fall back
+				// to the UUID if the header is missing or malformed.
 				cd := resp.Header.Get("Content-Disposition")
-				if cd != "" && strings.Contains(cd, "filename=") {
-					parts := strings.Split(cd, "filename=")
-					if len(parts) > 1 {
-						// SECURITY: Use filepath.Base to prevent path traversal
-						// (e.g., server returning filename="../../.bashrc")
-						outputPath = filepath.Base(strings.Trim(parts[1], "\" "))
-					}
+				if idx := strings.Index(cd, "filename="); idx >= 0 {
+					// SECURITY: use filepath.Base to strip any traversal.
+					outputPath = filepath.Base(strings.Trim(cd[idx+len("filename="):], `" `))
 				}
 				if outputPath == "" || outputPath == "." || outputPath == ".." {
-					outputPath = fileUUID
+					outputPath = fileUUIDStr
 				}
 			}
-			// SECURITY: Always strip directory components from output path
+			// SECURITY: only allow relative paths to be written to the
+			// current directory — never honor a relative path the server
+			// might propose with parent components.
 			if !filepath.IsAbs(outputPath) {
 				outputPath = filepath.Base(outputPath)
 			}
@@ -136,7 +130,7 @@ func newFilesDownloadCmd(app *App) *cobra.Command {
 			}
 
 			out.OK(map[string]any{
-				"uuid":  fileUUID,
+				"uuid":  fileUUIDStr,
 				"path":  outputPath,
 				"bytes": written,
 			}, fmt.Sprintf("Downloaded to %s (%d bytes)", outputPath, written), nil)
@@ -156,22 +150,19 @@ func newFilesUploadCmd(app *App) *cobra.Command {
 			out := app.Output()
 			filePath := args[0]
 
-			// Read file
+			info, err := os.Stat(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to stat file: %w", err)
+			}
+			if info.Size() > maxUploadSize {
+				return fmt.Errorf("file exceeds 100MB limit")
+			}
+
 			data, err := os.ReadFile(filePath)
 			if err != nil {
 				return fmt.Errorf("failed to read file: %w", err)
 			}
 
-			if len(data) > 100*1024*1024 {
-				return fmt.Errorf("file exceeds 100MB limit")
-			}
-
-			email, secret, err := app.Auth.GetCredentials()
-			if err != nil {
-				return err
-			}
-
-			// Create multipart request using mime/multipart (secure random boundary)
 			filename := filepath.Base(filePath)
 			var buf bytes.Buffer
 			writer := multipart.NewWriter(&buf)
@@ -184,26 +175,17 @@ func newFilesUploadCmd(app *App) *cobra.Command {
 			}
 			writer.Close()
 
-			url := app.Config.BaseURL + "/file/upload"
-			req, _ := http.NewRequest("POST", url, &buf)
-			req.SetBasicAuth(email, secret)
-			req.Header.Set("User-Agent", "FreeloCLI")
-			req.Header.Set("Content-Type", writer.FormDataContentType())
-
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := app.FreeloClient.UploadFileWithBody(cmd.Context(), writer.FormDataContentType(), &buf)
 			if err != nil {
 				out.Err(err, "upload_failed", "")
 				return err
 			}
-			defer resp.Body.Close()
 
-			respBody, _ := io.ReadAll(resp.Body)
-			if resp.StatusCode >= 400 {
-				return fmt.Errorf("upload failed: HTTP %d: %s", resp.StatusCode, string(respBody))
+			result, err := consumeAPIObject(resp, nil)
+			if err != nil {
+				out.Err(err, "upload_failed", "")
+				return err
 			}
-
-			var result map[string]any
-			_ = json.Unmarshal(respBody, &result)
 
 			out.OK(result, fmt.Sprintf("File '%s' uploaded", filename), nil)
 			return nil
