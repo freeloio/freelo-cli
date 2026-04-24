@@ -2,7 +2,7 @@ VERSION ?= v1.0.0-dev
 BINARY = freelo
 INSTALL_DIR = $(HOME)/bin
 
-.PHONY: build install clean test-live release-dry release help
+.PHONY: build install clean test test-integration test-live release-dry release help
 
 ## build: Build the freelo binary
 build:
@@ -19,6 +19,15 @@ install: build
 clean:
 	rm -f $(BINARY)
 	rm -rf dist/
+
+## test: Run unit tests (no API required)
+test:
+	go test ./...
+
+## test-integration: Run end-to-end tests against real Freelo API (needs .env.freelo-test)
+test-integration:
+	@if [ -f .env.freelo-test ]; then set -a && . ./.env.freelo-test && set +a; fi; \
+	go test -tags=integration ./test/integration/... -v -timeout 5m
 
 ## test-live: Run all commands against the live Freelo API
 test-live: build

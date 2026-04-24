@@ -22,8 +22,8 @@ Full plan lives in auto-memory (`project_freelo_cli_goal.md`). Short version:
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Cleanup + foundation (this file, CI, version) | **in progress** |
-| 2 | Integration + unit test harness | pending |
+| 1 | Cleanup + foundation (this file, CI, version) | done |
+| 2 | Integration + unit test harness | **in progress** |
 | 3 | `oapi-codegen` migration (replace handwritten client) | pending |
 | 4 | Rewrite embedded SKILL.md for CLI users | pending |
 | 5 | OS keyring, goreleaser dry-run, docs polish | pending |
@@ -75,11 +75,20 @@ Key design decisions already made:
 ## Dev workflow
 
 ```bash
-make build           # builds ./freelo with ldflags-injected version
-make install         # builds + copies to ~/bin + installs bundled skill for Claude Code
-make test-live       # smoke-tests ~7 commands against live API in --agent mode
-make release-dry     # goreleaser --snapshot --clean
+make build              # builds ./freelo with ldflags-injected version
+make install            # builds + copies to ~/bin + installs bundled skill for Claude Code
+make test               # unit tests (no API required) — always safe
+make test-integration   # end-to-end tests against real Freelo API (needs .env.freelo-test)
+make test-live          # legacy smoke test of ~7 commands against live API
+make release-dry        # goreleaser --snapshot --clean
 ```
+
+Integration tests live in `test/integration/` behind a `//go:build integration`
+tag so `go test ./...` never touches them accidentally. They drive the compiled
+`freelo` binary as a subprocess with `--agent`, asserting on the JSON payload.
+That contract (args in → JSON out) deliberately survives the oapi-codegen
+migration in Phase 3 — **don't convert them to call the internal client
+directly**, that would defeat their purpose as a safety net.
 
 Integration tests (Phase 2) use `.env.freelo-test` (gitignored) with:
 - `FREELO_EMAIL=info@byurban.cz` (test account)
