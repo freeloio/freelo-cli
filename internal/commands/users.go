@@ -1,13 +1,15 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/spf13/cobra"
 )
 
 // NewUsersCmd creates the 'users' command group.
+//
+// Phase 3 migration: uses app.FreeloClient.
 func NewUsersCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "users",
@@ -30,14 +32,11 @@ func newUsersMeCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 
-			result, err := app.Client.Get("/users/me")
+			user, err := consumeAPIObject(app.FreeloClient.GetUsersMe(cmd.Context()))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
-
-			var user map[string]any
-			_ = json.Unmarshal(result, &user)
 
 			fullname := ""
 			if fn, ok := user["fullname"].(string); ok {
@@ -57,13 +56,13 @@ func newUsersListCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 
-			result, err := app.Client.Get("/users")
+			body, err := consumeAPIBody(app.FreeloClient.GetAllUsers(cmd.Context(), &freelo.GetAllUsersParams{}))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
 
-			users, _ := parsePaginatedItems(result)
+			users, _ := parsePaginatedItems(body)
 
 			simplified := make([]map[string]any, 0, len(users))
 			for _, u := range users {
