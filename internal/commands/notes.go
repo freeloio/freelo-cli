@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -39,19 +39,16 @@ func newNotesCreateCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--project and --name are required")
 			}
 
-			body := map[string]any{"name": name}
+			body := freelo.CreateNoteJSONRequestBody{Name: name}
 			if content != "" {
-				body["content"] = content
+				body.Content = &content
 			}
 
-			result, err := app.Client.Post(fmt.Sprintf("/project/%d/note", projectID), body)
+			note, err := consumeAPIObject(app.FreeloClient.CreateNote(cmd.Context(), projectID, body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-
-			var note map[string]any
-			_ = json.Unmarshal(result, &note)
 
 			id := ""
 			if v, ok := note["id"]; ok {
@@ -77,14 +74,12 @@ func newNotesShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			result, err := app.Client.Get("/note/" + args[0])
+			noteID := mustInt(args[0])
+			note, err := consumeAPIObject(app.FreeloClient.GetNote(cmd.Context(), noteID))
 			if err != nil {
 				out.Err(err, "not_found", "")
 				return err
 			}
-			var note map[string]any
-			_ = json.Unmarshal(result, &note)
-
 			name := ""
 			if n, ok := note["name"].(string); ok {
 				name = n
@@ -98,35 +93,38 @@ func newNotesShowCmd(app *App) *cobra.Command {
 func newNotesEditCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "edit <note-id>",
-		Short: "Edit a note",
+		Short: "Edit a note (--name is required; EditNote spec demands a full name)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			noteID := args[0]
+			noteID := mustInt(args[0])
 
-			body := map[string]any{}
-			if name, _ := cmd.Flags().GetString("name"); name != "" {
-				body["name"] = name
-			}
-			if content, _ := cmd.Flags().GetString("content"); content != "" {
-				body["content"] = content
-			}
-			if len(body) == 0 {
-				return fmt.Errorf("at least --name or --content is required")
+			name, _ := cmd.Flags().GetString("name")
+			content, _ := cmd.Flags().GetString("content")
+
+			if name == "" {
+				// Spec marks `name` as required (non-pointer) on EditNoteJSONBody.
+				// Old CLI sent partial bodies, which the server would have
+				// rejected with a 400 anyway. Fail-fast with a clear CLI
+				// message rather than a remote error round-trip.
+				return fmt.Errorf("--name is required (Freelo EditNote expects the full title)")
 			}
 
-			result, err := app.Client.Post("/note/"+noteID, body)
+			body := freelo.EditNoteJSONRequestBody{Name: name}
+			if content != "" {
+				body.Content = &content
+			}
+
+			note, err := consumeAPIObject(app.FreeloClient.EditNote(cmd.Context(), noteID, body))
 			if err != nil {
 				out.Err(err, "edit_failed", "")
 				return err
 			}
-			var note map[string]any
-			_ = json.Unmarshal(result, &note)
-			out.OK(note, fmt.Sprintf("Note %s updated", noteID), nil)
+			out.OK(note, fmt.Sprintf("Note %d updated", noteID), nil)
 			return nil
 		},
 	}
-	cmd.Flags().String("name", "", "New title")
+	cmd.Flags().String("name", "", "New title (required)")
 	cmd.Flags().String("content", "", "New content (HTML)")
 	return cmd
 }
@@ -138,12 +136,12 @@ func newNotesDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			_, err := app.Client.Delete("/note/" + args[0])
-			if err != nil {
+			noteID := mustInt(args[0])
+			if _, err := consumeAPIObject(app.FreeloClient.DeleteNote(cmd.Context(), noteID)); err != nil {
 				out.Err(err, "delete_failed", "")
 				return err
 			}
-			out.OK(map[string]any{"id": mustInt(args[0]), "deleted": true}, fmt.Sprintf("Note %s deleted", args[0]), nil)
+			out.OK(map[string]any{"id": noteID, "deleted": true}, fmt.Sprintf("Note %d deleted", noteID), nil)
 			return nil
 		},
 	}
