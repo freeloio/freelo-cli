@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -39,21 +39,16 @@ func newTrackingStartCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--task is required")
 			}
 
-			body := map[string]any{
-				"task_id": taskID,
-			}
+			body := freelo.StartTimeTrackingJSONRequestBody{TaskId: &taskID}
 			if note != "" {
-				body["note"] = note
+				body.Note = &note
 			}
 
-			result, err := app.Client.Post("/timetracking/start", body)
+			tracking, err := consumeAPIObject(app.FreeloClient.StartTimeTracking(cmd.Context(), body))
 			if err != nil {
 				out.Err(err, "start_failed", "")
 				return err
 			}
-
-			var tracking map[string]any
-			_ = json.Unmarshal(result, &tracking)
 
 			out.OK(tracking, fmt.Sprintf("Time tracking started on task %d", taskID), []output.Breadcrumb{
 				{Action: "stop", Cmd: "freelo tracking stop", Description: "Stop tracking"},
@@ -74,14 +69,11 @@ func newTrackingStopCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 
-			result, err := app.Client.Post("/timetracking/stop", nil)
+			report, err := consumeAPIObject(app.FreeloClient.StopTimeTracking(cmd.Context()))
 			if err != nil {
 				out.Err(err, "stop_failed", "Is there an active timer? Check with 'freelo tracking status'")
 				return err
 			}
-
-			var report map[string]any
-			_ = json.Unmarshal(result, &report)
 
 			out.OK(report, "Time tracking stopped", nil)
 			return nil
@@ -96,14 +88,11 @@ func newTrackingStatusCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 
-			result, err := app.Client.Get("/timetracking/status")
+			status, err := consumeAPIObject(app.FreeloClient.GetTimeTrackingStatus(cmd.Context()))
 			if err != nil {
 				out.Err(err, "status_failed", "")
 				return err
 			}
-
-			var status map[string]any
-			_ = json.Unmarshal(result, &status)
 
 			summary := "No active tracking"
 			if taskID, ok := status["task_id"]; ok && taskID != nil {
