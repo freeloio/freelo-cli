@@ -1,7 +1,7 @@
-# Binary
-freelo
-freelo.exe
-dist/
+# Binary (anchor to repo root so the internal/api/freelo/ package is NOT ignored)
+/freelo
+/freelo.exe
+/dist/
 
 # OS
 .DS_Store
