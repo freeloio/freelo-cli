@@ -1,14 +1,17 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
 // NewTasklistsCmd creates the 'tasklists' command group.
+//
+// Phase 3 migration: all subcommands use app.FreeloClient via the raw
+// *http.Response methods.
 func NewTasklistsCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "tasklists",
@@ -33,56 +36,52 @@ func newTasklistsListCmd(app *App) *cobra.Command {
 			out := app.Output()
 			projectID, _ := cmd.Flags().GetInt("project")
 
-			var path string
+			simplified := make([]map[string]any, 0)
+			crumbs := []output.Breadcrumb{
+				{Action: "view", Cmd: "freelo tasklists show <id>", Description: "View tasklist detail"},
+			}
+
 			if projectID != 0 {
-				path = fmt.Sprintf("/project/%d", projectID)
-				// Project detail includes tasklists
-				result, err := app.Client.Get(path)
+				// Use /project/{id} rather than /all-tasklists?projects_ids[]=
+				// because onboarding/demo projects (e.g. 580898) don't appear
+				// in the /all-* listings — same quirk documented in the skill.
+				// /project/{id} returns them reliably via its `tasklists` field.
+				project, err := consumeAPIObject(app.FreeloClient.GetProject(cmd.Context(), projectID))
 				if err != nil {
 					out.Err(err, "api_error", "")
 					return err
 				}
-
-				var project map[string]any
-				_ = json.Unmarshal(result, &project)
-
-				tasklists := []map[string]any{}
 				if tls, ok := project["tasklists"].([]any); ok {
 					for _, tl := range tls {
-						if tlMap, ok := tl.(map[string]any); ok {
-							tasklists = append(tasklists, map[string]any{
-								"id":   tlMap["id"],
-								"name": tlMap["name"],
+						if m, ok := tl.(map[string]any); ok {
+							simplified = append(simplified, map[string]any{
+								"id":   m["id"],
+								"name": m["name"],
 							})
 						}
 					}
 				}
-
-				out.OK(tasklists, fmt.Sprintf("%d tasklists", len(tasklists)), []output.Breadcrumb{
-					{Action: "view", Cmd: "freelo tasklists show <id>", Description: "View tasklist detail"},
-					{Action: "tasks", Cmd: fmt.Sprintf("freelo tasks list --project %d --tasklist <id>", projectID), Description: "List tasks in tasklist"},
+				crumbs = append(crumbs, output.Breadcrumb{
+					Action:      "tasks",
+					Cmd:         fmt.Sprintf("freelo tasks list --project %d --tasklist <id>", projectID),
+					Description: "List tasks in tasklist",
 				})
-				return nil
+			} else {
+				body, err := consumeAPIBody(app.FreeloClient.GetAllTasklists(cmd.Context(), &freelo.GetAllTasklistsParams{}))
+				if err != nil {
+					out.Err(err, "api_error", "")
+					return err
+				}
+				tasklists, _ := parsePaginatedItems(body)
+				for _, tl := range tasklists {
+					simplified = append(simplified, map[string]any{
+						"id":   tl["id"],
+						"name": tl["name"],
+					})
+				}
 			}
 
-			// All tasklists
-			result, err := app.Client.Get("/all-tasklists")
-			if err != nil {
-				out.Err(err, "api_error", "")
-				return err
-			}
-
-			tasklists, _ := parsePaginatedItems(result)
-
-			simplified := make([]map[string]any, 0, len(tasklists))
-			for _, tl := range tasklists {
-				simplified = append(simplified, map[string]any{
-					"id":   tl["id"],
-					"name": tl["name"],
-				})
-			}
-
-			out.OK(simplified, fmt.Sprintf("%d tasklists", len(simplified)), nil)
+			out.OK(simplified, fmt.Sprintf("%d tasklists", len(simplified)), crumbs)
 			return nil
 		},
 	}
@@ -97,16 +96,13 @@ func newTasklistsShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			tasklistID := args[0]
+			tasklistID := mustInt(args[0])
 
-			result, err := app.Client.Get("/tasklist/" + tasklistID)
+			tasklist, err := consumeAPIObject(app.FreeloClient.GetTasklist(cmd.Context(), tasklistID))
 			if err != nil {
 				out.Err(err, "not_found", "")
 				return err
 			}
-
-			var tasklist map[string]any
-			_ = json.Unmarshal(result, &tasklist)
 
 			name := ""
 			if n, ok := tasklist["name"].(string); ok {
@@ -133,21 +129,16 @@ func newTasklistsCreateCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--project and --name are required")
 			}
 
-			body := map[string]any{"name": name}
-
+			body := freelo.CreateTasklistJSONRequestBody{Name: name}
 			if budget, _ := cmd.Flags().GetString("budget"); budget != "" {
-				body["budget"] = budget
+				body.Budget = &budget
 			}
 
-			path := fmt.Sprintf("/project/%d/tasklists", projectID)
-			result, err := app.Client.Post(path, body)
+			tasklist, err := consumeAPIObject(app.FreeloClient.CreateTasklist(cmd.Context(), projectID, body))
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
 			}
-
-			var tasklist map[string]any
-			_ = json.Unmarshal(result, &tasklist)
 
 			out.OK(tasklist, fmt.Sprintf("Tasklist '%s' created", name), nil)
 			return nil
@@ -155,6 +146,6 @@ func newTasklistsCreateCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().IntP("project", "p", 0, "Project ID (required)")
 	cmd.Flags().String("name", "", "Tasklist name (required)")
-	cmd.Flags().String("budget", "", "Budget amount")
+	cmd.Flags().String("budget", "", "Budget amount (2 decimal places, no separator)")
 	return cmd
 }
