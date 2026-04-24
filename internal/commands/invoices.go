@@ -1,10 +1,9 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
-	"strings"
 
+	"github.com/freeloio/freelo-cli/internal/api/freelo"
 	"github.com/spf13/cobra"
 )
 
@@ -33,32 +32,29 @@ func newInvoicesListCmd(app *App) *cobra.Command {
 			projectID, _ := cmd.Flags().GetInt("project")
 			page, _ := cmd.Flags().GetInt("page")
 
-			path := "/issued-invoices"
-			params := []string{}
+			params := &freelo.GetIssuedInvoicesParams{}
 			if projectID != 0 {
-				params = append(params, fmt.Sprintf("projects_ids[]=%d", projectID))
+				ids := []int{projectID}
+				params.ProjectsIds = &ids
 			}
 			if page > 0 {
-				params = append(params, fmt.Sprintf("p=%d", page))
-			}
-			if len(params) > 0 {
-				path += "?" + strings.Join(params, "&")
+				p := freelo.PageParam(page)
+				params.P = &p
 			}
 
-			result, err := app.Client.Get(path)
+			body, err := consumeAPIBody(app.FreeloClient.GetIssuedInvoices(cmd.Context(), params))
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
 			}
 
-			invoices, _ := parsePaginatedItems(result)
-
+			invoices, _ := parsePaginatedItems(body)
 			out.OK(invoices, fmt.Sprintf("%d invoices", len(invoices)), nil)
 			return nil
 		},
 	}
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
-	cmd.Flags().Int("page", 0, "Page number")
+	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
 	return cmd
 }
 
@@ -69,13 +65,12 @@ func newInvoicesShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			result, err := app.Client.Get("/issued-invoice/" + args[0])
+			invoiceID := mustInt(args[0])
+			invoice, err := consumeAPIObject(app.FreeloClient.GetIssuedInvoiceDetail(cmd.Context(), invoiceID))
 			if err != nil {
 				out.Err(err, "not_found", "")
 				return err
 			}
-			var invoice map[string]any
-			_ = json.Unmarshal(result, &invoice)
 			out.OK(invoice, "", nil)
 			return nil
 		},
@@ -89,30 +84,28 @@ func newInvoicesMarkCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			invoiceID := args[0]
+			invoiceID := mustInt(args[0])
 			url, _ := cmd.Flags().GetString("url")
 			subject, _ := cmd.Flags().GetString("subject")
 
-			body := map[string]any{}
-			if url != "" {
-				body["url"] = url
-			}
-			if subject != "" {
-				body["subject"] = subject
+			// Spec marks both fields as required non-pointer strings —
+			// catch empty values at CLI layer with a clear message rather
+			// than letting the server 400 on a malformed payload.
+			if url == "" || subject == "" {
+				return fmt.Errorf("--url and --subject are required")
 			}
 
-			result, err := app.Client.Post("/issued-invoice/"+invoiceID+"/mark-as-invoiced", body)
+			body := freelo.MarkAsInvoicedJSONRequestBody{Url: url, Subject: subject}
+			resp, err := consumeAPIObject(app.FreeloClient.MarkAsInvoiced(cmd.Context(), invoiceID, body))
 			if err != nil {
 				out.Err(err, "mark_failed", "")
 				return err
 			}
-			var resp any
-			_ = json.Unmarshal(result, &resp)
-			out.OK(resp, fmt.Sprintf("Invoice %s marked as invoiced", invoiceID), nil)
+			out.OK(resp, fmt.Sprintf("Invoice %d marked as invoiced", invoiceID), nil)
 			return nil
 		},
 	}
-	cmd.Flags().String("url", "", "Invoice URL")
-	cmd.Flags().String("subject", "", "Invoice subject")
+	cmd.Flags().String("url", "", "Invoice URL (required)")
+	cmd.Flags().String("subject", "", "Invoice subject (required)")
 	return cmd
 }
