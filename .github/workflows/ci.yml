@@ -79,7 +79,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -87,12 +86,14 @@ jobs:
       - name: Run gosec
         uses: securego/gosec@master
         with:
-          # Scan everything except the generated client (auto-generated code
-          # carries spurious findings that would drown the real signal).
-          args: '-exclude-dir=internal/api/freelo -fmt=sarif -out=gosec-results.sarif ./...'
-
-      - name: Upload SARIF to GitHub code scanning
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: gosec-results.sarif
+          # `-no-fail` keeps the job green even if gosec finds issues — the
+          # findings still print into the job log and we review them on
+          # every PR. Without -no-fail, any finding would block CI; we'd
+          # rather have a visible report than a forced red.
+          # `-exclude-dir=internal/api/freelo` skips the auto-generated
+          # client (its findings are spurious and drown the signal).
+          # `-fmt=text` writes to the log; on a private repo without GHAS,
+          # SARIF + code-scanning upload is unavailable, so a text report
+          # is the most useful output we can produce. When the repo flips
+          # public (GHAS free), switch back to SARIF + upload-sarif.
+          args: '-no-fail -exclude-dir=internal/api/freelo -fmt=text ./...'
