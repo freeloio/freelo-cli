@@ -48,19 +48,11 @@ release:
   prerelease: auto
   name_template: "v{{.Version}}"
 
-brews:
-  - name: freelo
-    repository:
-      owner: freeloio
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
-    homepage: "https://www.freelo.io"
-    description: "Official CLI for Freelo project management"
-    license: "MIT"
-    install: |
-      bin.install "freelo"
-    test: |
-      system "#{bin}/freelo", "version"
-    # Skip brew publish during internal testing
-    skip_upload: auto
+# Homebrew distribution intentionally NOT configured for v1.0.0.
+# Reasons:
+# - The `freeloio/homebrew-tap` repository does not yet exist.
+# - GoReleaser v2 deprecates `brews:` in favor of `homebrew_casks:`,
+#   which uses a different schema (binary: stanza, not Ruby `install:`).
+# Plan: ship v1.0.0 with curl/install.sh + go install + GitHub Releases as
+# the install paths, then add `homebrew_casks:` in a v1.0.x follow-up once
+# the tap repo + HOMEBREW_TAP_TOKEN secret are provisioned.

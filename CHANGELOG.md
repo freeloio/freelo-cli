@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-The pre-1.0 series. Targeting the first public release as `v1.0.0`.
+## [1.0.0] — 2026-04-28
+
+First public release.
 
 ### Added
 
@@ -74,5 +76,6 @@ The pre-1.0 series. Targeting the first public release as `v1.0.0`.
 
 Initial private release. See `git log` for the full history.
 
-[Unreleased]: https://github.com/freeloio/freelo-cli/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/freeloio/freelo-cli/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/freeloio/freelo-cli/releases/tag/v1.0.0
 [0.1.0]: https://github.com/freeloio/freelo-cli/releases/tag/v0.1.0

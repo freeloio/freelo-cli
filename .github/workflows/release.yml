@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write   # GoReleaser creates the GitHub Release
+  packages: write   # Reserved for future container images
+  issues: write     # GoReleaser may comment on referenced issues
+
+jobs:
+  release:
+    name: GoReleaser publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # GoReleaser needs the full commit history for changelog
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          # GITHUB_TOKEN is auto-provided by Actions; used to create the
+          # release and upload binaries / checksums.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Homebrew tap publish is intentionally not configured for v1.0.0
+          # (see comment in .goreleaser.yaml). When we add it back in a
+          # follow-up, set HOMEBREW_TAP_TOKEN as a repository secret here.

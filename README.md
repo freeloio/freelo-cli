@@ -29,9 +29,8 @@ curl -fsSL https://raw.githubusercontent.com/freeloio/freelo-cli/main/install.sh
 
 ### Homebrew (macOS / Linux)
 
-```bash
-brew install freeloio/tap/freelo
-```
+Coming in a follow-up release. For v1.0.0, please use `install.sh`,
+`go install`, or the GitHub Releases binary download below.
 
 ### Go install
 

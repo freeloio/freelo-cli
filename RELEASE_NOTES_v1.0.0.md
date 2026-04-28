@@ -29,12 +29,6 @@ reach the CLI on autopilot.
 
 ## Install
 
-### Homebrew (macOS / Linux)
-
-```bash
-brew install freeloio/tap/freelo
-```
-
 ### Curl install script
 
 ```bash
