@@ -48,13 +48,25 @@ Download the latest binary for your platform from [GitHub Releases](https://gith
 Get your API key at [https://app.freelo.io/profil/nastaveni](https://app.freelo.io/profil/nastaveni).
 
 ```bash
-# Interactive login (stores credentials securely)
+# Interactive login (stores credentials in your OS keyring)
 freelo auth login
 
 # Or use environment variables (great for CI/agents)
 export FREELO_EMAIL=you@example.com
 export FREELO_API_KEY=your-api-key
 ```
+
+### Credential storage
+
+By default, `freelo auth login` stores credentials in your OS-native secrets store:
+
+- **macOS:** Keychain
+- **Windows:** Credential Manager
+- **Linux:** Secret Service (gnome-keyring, kwallet, …)
+
+On a headless Linux server or in a Docker container without DBus, set
+`FREELO_KEYRING=file` to fall back to a 0600 JSON file at
+`~/.config/freelo/credentials.json`.
 
 ## Environments
 
@@ -84,10 +96,10 @@ Production and dev credentials are stored separately — you can be logged into 
 |---------|-------------|
 | `freelo projects` | Manage projects (list, show, create, archive, activate, delete) |
 | `freelo tasks` | Manage tasks (list, show, create, edit, finish, activate, move) |
-| `freelo subtasks` | Manage subtasks (list, show, create, finish, activate, delete) |
-| `freelo tasklists` | Manage tasklists (list, show, create) |
+| `freelo subtasks` | Manage subtasks (list, create — Freelo API doesn't support edit/delete) |
+| `freelo tasklists` | Manage tasklists (list, show, create — API doesn't support edit/delete) |
 | `freelo search` | Search across all entities |
-| `freelo comments` | Manage comments (list, create, edit, delete) |
+| `freelo comments` | Manage comments (list, create, edit — API doesn't support delete) |
 | `freelo labels` | Manage task and project labels |
 | `freelo tracking` | Time tracking (start, stop, status) |
 | `freelo reports` | Work reports (list, create, edit, delete) |
@@ -138,18 +150,18 @@ The agent will automatically use `freelo` commands to fulfill your request.
 ## Development
 
 ```bash
-# Build
-make build
-
-# Install locally
-make install
-
-# Run tests against live API
-make test-live
-
-# Dry-run release (no publish)
-make release-dry
+make build              # build ./freelo with version ldflags
+make install            # build + install to ~/bin + register skill with Claude Code
+make test               # unit tests (no API required)
+make test-integration   # end-to-end tests against real Freelo API (needs .env.freelo-test)
+make gen                # refresh the OpenAPI spec + regenerate the API client
+make release-dry        # GoReleaser snapshot — builds all 6 platform archives, no publish
 ```
+
+The CLI is a thin wrapper around an [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen)-generated
+client built from the [Freelo OpenAPI spec](https://api.freelo.io/docs/v1/freelo-api.yaml).
+A weekly GitHub Actions cron runs `make gen` and opens a pull request when the upstream
+spec changes — that's how new endpoints reach the CLI without manual work.
 
 ## License
 
