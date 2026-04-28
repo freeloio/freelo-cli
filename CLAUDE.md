@@ -26,7 +26,7 @@ Full plan lives in auto-memory (`project_freelo_cli_goal.md`). Short version:
 | 2 | Integration + unit test harness | done |
 | 3 | `oapi-codegen` migration (replace handwritten client) | done |
 | 4 | Rewrite embedded SKILL.md for CLI users | done |
-| 5 | OS keyring, goreleaser dry-run, docs polish | pending |
+| 5 | OS keyring, goreleaser dry-run, docs polish | done |
 | 6 | Public launch v1.0.0 + Homebrew tap | pending |
 | 7 | OAuth (deferred — see below) | blocked on Freelo backend |
 
@@ -53,8 +53,13 @@ internal/
                          passthrough to reach the underlying Server + doer +
                          RequestEditors without rebuilding the stack.
   api/freelo/            oapi-codegen output (DO NOT EDIT — regenerate via `make gen`)
-  auth/auth.go           Provider interface + BasicAuth impl
-  auth/keyring.go        file-based keyring (0600 JSON; Phase 5 → OS keyring)
+  auth/auth.go           Provider interface + BasicAuth impl. Service
+                         namespace switches between "freelo-cli" (prod) and
+                         "freelo-cli-dev" (--dev) so the OS keyring keeps
+                         them separate.
+  auth/keyring.go        OS keyring by default (Keychain / Credential Manager
+                         / Secret Service via zalando/go-keyring); file
+                         fallback opt-in via FREELO_KEYRING=file (0600 JSON)
   config/config.go       layered config: flags > env > local > global > defaults
   output/output.go       envelope pattern — Format{Auto,JSON,Agent,Quiet,IDs,Count}
 skills/
