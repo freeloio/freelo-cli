@@ -19,9 +19,8 @@ HTTP roundtrip, throwaway entities cleaned up after each round
 | Fail (real bugs) | **5** |
 | Skip (destructive ops, paid plan, etc.) | **6** |
 | Test-only artifacts (bad assertions) | **7** — counted as pass after correction |
-| Bugs found | **5** |
-| Bugs fixed in this session | **4** |
-| Bugs deferred to v1.0.x | **1** (feature gap, not a regression) |
+| Bugs found | **5** + 1 follow-up regression introduced by the Bug #2 fix and immediately fixed |
+| Bugs fixed | **All 6** (audit + follow-up; nothing deferred) |
 
 The CLI is in good shape. No regressions vs the legacy v0.1.0 surface; the
 generated-client wrapper handles auth, rate limiting, and retry transparently
@@ -102,32 +101,49 @@ successfully and `freelo labels list` shows it.
 
 ---
 
-### Bug #4 — no `--file` flag on comments / notes / task description (DEFERRED)
+### Bug #4 — no `--file` flag on comments / task description (FIXED)
 
-**Symptom:** `freelo files upload` returns a UUID, but there's no CLI
+**Symptom:** `freelo files upload` returned a UUID, but there was no CLI
 command to *attach* that UUID to anything. The Freelo file workflow is
 upload → attach → download, and an unattached file is orphaned (downloads
-return 404). The CLI exposes upload and download but not attach.
+return 404). The CLI exposed upload and download but not attach.
 
-**Workaround:** the `freelo api` passthrough handles the middle step:
+**Workaround pre-fix:** drop into the `freelo api` passthrough:
 
 ```bash
 FILE_UUID=$(freelo files upload report.pdf --agent | jq -r '.uuid')
 freelo api post /task/29576359/comments \
   --data "{\"content\":\"see attached\",\"files\":[{\"uuid\":\"$FILE_UUID\"}]}" --agent
-freelo files download "$FILE_UUID" --output report.pdf --agent
 ```
 
-This was verified to work end-to-end (24-byte file uploaded → attached →
-downloaded with bytes-equal verification).
+**Fix:** added a repeatable `--file <uuid>` flag to:
+- `freelo comments create`
+- `freelo comments edit`
+- `freelo tasks description --set`
 
-**Status:** **DEFERRED to v1.0.x**. Adding a `--file` flag to
-`comments create`, `notes create`, and `tasks description --set` is a
-medium-sized feature, not a regression — the legacy v0.1.0 didn't expose it
-either. The api-passthrough escape hatch is a clean workaround for users
-who need it today.
+Notes are intentionally NOT extended — the live API silently ignores the
+`files` field on `POST /project/<id>/note` (verified during the audit;
+documented behavior in the public skill).
 
-**Severity:** low (feature gap, not broken behavior).
+The new flag uses `pflag.StringArray`, so multi-attach is `--file <uuid>
+--file <uuid>`. The CLI validates each value as a UUID at parse time
+(rejects malformed input with a clear error), then routes the request
+through the typed client's `*WithBody` variant with a hand-crafted JSON
+payload. The reason for the manual body: the OpenAPI spec models
+attachments as `FileUpload{download_url, filename}`, but the live server
+treats `download_url` as "fetch this URL" — passing
+`https://app.freelo.io/file/<uuid>` there fetches the HTML page rather
+than the file. The shape the server actually accepts for an
+already-uploaded file is `{"uuid": "<uuid>"}`, undocumented in the spec.
+
+**Verified end-to-end against the live test project:**
+- single-file: 32-byte upload → attach via `--file` → download → bytes match
+- multi-file: two fresh UUIDs both attached, response shows
+  `files: [<two entries>]` with correct sizes
+- invalid UUID rejected at CLI parse with hint
+- typed path (no `--file`) still works unchanged
+
+**Severity:** medium UX (closed gap with the public skill's documented workflow).
 
 ---
 
@@ -151,22 +167,48 @@ correctly.
 
 ---
 
-## Findings — non-bugs (UX polish opportunities)
+### Bug #6 — double-printed errors (introduced by Bug #2 fix; FIXED)
 
-These are not blocking, not regressions, and the CLI is functionally correct
-— just documenting them for follow-up consideration.
+**Symptom:** after the Bug #2 fix landed in `cmd/freelo/main.go`, errors
+that DID go through `out.Err()` (most API failures and the new file-flag
+validation) were getting printed twice — once by the writer in non-JSON
+mode, once by the safety-net fallback in `main`. The fix for one bug had
+opened a smaller one.
 
-- **`freelo tracking status` when idle** prints bare `null` to stdout under
-  `--agent`. A normalized `{"active": false}` shape would be friendlier to
-  consumers (esp. `jq` pipelines). Today consumers handle this with
-  `jq 'select(.task_id != null)'` or similar.
+**Root cause:** `main` always printed when `cli.Execute()` returned a
+non-nil error, regardless of whether the writer had already rendered it.
+
+**Fix:** added a process-scoped `atomic.Bool` to the `output` package
+(`ErrorWasRendered`); `Writer.Err` flips it on call. `main` now only
+prints the fallback when the flag is false. Cobra arg errors and pure
+`fmt.Errorf` returns from `RunE` (which never touch the writer) still
+get printed; everything that already rendered cleanly is silent.
+
+**Verified live in four scenarios:**
+
+| Scenario | stderr lines | stdout |
+|---|---:|---|
+| Bad UUID `--file`, default mode | 1 (clean) | — |
+| Bad UUID `--file`, `--agent` mode | 0 | JSON error envelope |
+| Missing required flag, default mode | 1 (clean, main fallback) | — |
+| 404 `tasks show`, `--agent` | 0 | JSON error envelope |
+
+---
+
+## Findings — non-bugs (UX polish that turned into fixes)
+
+- **`freelo tracking status` when idle** used to print bare `null` to
+  stdout under `--agent`. **FIXED:** now normalized to
+  `{"active": false, "task_id": null}` when there's no active session,
+  and `{"active": true, ...}` when something IS being tracked. Consumers
+  no longer need `jq 'select(.task_id != null)'` ceremony.
 
 - **Custom-fields lifecycle requires a paid plan.** `custom-fields create`
   returns `402 "Payment required. Your plan has been exceeded"` on the test
   account. The CLI surfaces the error correctly (`ok: false`); no further
   testing of `rename / delete / restore / set-value / enum-*` was possible
   on this plan. The paid-plan paths SHOULD work — same wrapper, same typed
-  client — but couldn't be live-validated.
+  client — but couldn't be live-validated. Status: **untested, not a bug**.
 
 ---
 
@@ -192,7 +234,9 @@ These are not blocking, not regressions, and the CLI is functionally correct
 | Commit | What |
 |---|---|
 | `742a548` | Pre-audit baseline |
-| `e9d0414` | Bug fixes #1, #2, #3, #5 (this commit) |
+| `e9d0414` | Bug fixes #1, #2, #3, #5 |
+| `b6bdb53` | Initial audit report |
+| (next)    | Bug #4 fix (--file flag), Bug #6 fix (double-print), tracking-idle normalization, report update |
 
 ## Methodology notes
 
@@ -230,13 +274,21 @@ and remove. End state of project 580898: pre-audit + 1 leftover tasklist
 
 ## Recommendation
 
-**Ready for v1.0.0 launch** after the four fixes in this commit. The
-remaining feature gap (Bug #4) is a known limitation worth documenting in
-the release notes but not blocking. Suggested follow-up tasks:
+**Ready for v1.0.0 launch.** All bugs surfaced by the audit are fixed in
+the CLI surface that ships. The only outstanding non-fix is the
+paid-plan-only custom-fields lifecycle, which is a Freelo plan boundary,
+not a CLI defect.
 
-1. Add `--file <uuid>` to `comments create`, `notes create`, and
-   `tasks description --set` (Bug #4) — v1.0.x
-2. Normalize idle `tracking status` to `{"active": false}` — v1.0.x
-3. Test paid-plan custom-fields lifecycle on a paid test account — pre v1.1
-4. Add a `--no-color` / `--private` ergonomic refresh review across all
-   label operations now that the conventions are codified.
+Suggested follow-up tasks (post-launch, not blocking):
+
+1. **Test paid-plan custom-fields lifecycle on a paid test account** —
+   the wrapper / typed client should make the lifecycle work, but
+   live coverage is missing.
+2. **Audit other parts of the spec for `optional in OpenAPI but required
+   server-side` discrepancies** — bug #3 was one example
+   (`labels add-to-project` color/is_private); there may be others. A
+   periodic comparison of `400 "Missing item ..."` error messages from
+   integration runs vs the typed body shapes would surface them.
+3. **Telemetry on `--file` flag adoption** so we know whether the
+   workflow is well-discovered. The agent skill already documents it,
+   but human users may need stronger surfacing in `freelo files --help`.

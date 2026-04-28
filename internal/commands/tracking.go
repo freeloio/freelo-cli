@@ -94,9 +94,18 @@ func newTrackingStatusCmd(app *App) *cobra.Command {
 				return err
 			}
 
+			// The API returns bare JSON null when nothing is being tracked.
+			// consumeAPIObject hands us a nil map for that body. Normalize
+			// to {"active": false, "task_id": null} so consumers (jq, agents)
+			// always see a stable object shape and a clear active flag.
 			summary := "No active tracking"
-			if taskID, ok := status["task_id"]; ok && taskID != nil {
+			if status == nil {
+				status = map[string]any{"active": false, "task_id": nil}
+			} else if taskID, ok := status["task_id"]; ok && taskID != nil {
+				status["active"] = true
 				summary = fmt.Sprintf("Tracking task %v", taskID)
+			} else {
+				status["active"] = false
 			}
 
 			out.OK(status, summary, []output.Breadcrumb{

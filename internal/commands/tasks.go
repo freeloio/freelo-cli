@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -373,12 +375,38 @@ func newTasksDescriptionCmd(app *App) *cobra.Command {
 			out := app.Output()
 			taskID := mustInt(args[0])
 			content, _ := cmd.Flags().GetString("set")
+			fileUUIDs, _ := cmd.Flags().GetStringArray("file")
+
+			// Setting an empty body purely to attach files is not a
+			// supported workflow — Freelo's EditTaskDescription requires a
+			// content string. Reject early to keep the user honest.
+			if len(fileUUIDs) > 0 && content == "" {
+				return fmt.Errorf("--file requires --set with content; pass an empty string explicitly if you really want to overwrite the description with nothing")
+			}
 
 			if content != "" {
-				body := freelo.EditTaskDescriptionJSONRequestBody{Content: content}
-				if _, err := consumeAPIObject(app.FreeloClient.EditTaskDescription(cmd.Context(), taskID, body)); err != nil {
-					out.Err(err, "set_description_failed", "")
-					return err
+				if len(fileUUIDs) == 0 {
+					body := freelo.EditTaskDescriptionJSONRequestBody{Content: content}
+					if _, err := consumeAPIObject(app.FreeloClient.EditTaskDescription(cmd.Context(), taskID, body)); err != nil {
+						out.Err(err, "set_description_failed", "")
+						return err
+					}
+				} else {
+					files, err := validateAndWrapFileUUIDs(fileUUIDs)
+					if err != nil {
+						return err
+					}
+					payload, err := json.Marshal(map[string]any{
+						"content": content,
+						"files":   files,
+					})
+					if err != nil {
+						return err
+					}
+					if _, err := consumeAPIObject(app.FreeloClient.EditTaskDescriptionWithBody(cmd.Context(), taskID, "application/json", bytes.NewReader(payload))); err != nil {
+						out.Err(err, "set_description_failed", "")
+						return err
+					}
 				}
 				out.OK(map[string]any{"id": taskID, "description_set": true}, "Description updated", nil)
 				return nil
@@ -394,5 +422,6 @@ func newTasksDescriptionCmd(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().String("set", "", "Set description content (HTML)")
+	cmd.Flags().StringArray("file", nil, "Attach an uploaded file by UUID (repeat for multiple). Replaces any previous attachments on the description.")
 	return cmd
 }

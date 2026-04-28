@@ -5,8 +5,20 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync/atomic"
 	"text/tabwriter"
 )
+
+// errorPrinted records whether any Writer.Err call has fired in this
+// process. The CLI's main() inspects it so it can skip its own
+// stderr-fallback when a command already rendered the error to stderr or
+// to the JSON envelope. Without this, validation errors would print twice:
+// once by Writer.Err and once by main's safety net for unhandled errors.
+var errorPrinted atomic.Bool
+
+// ErrorWasRendered reports whether any Writer.Err has been called in this
+// process. Intended for the CLI entrypoint to suppress double-printing.
+func ErrorWasRendered() bool { return errorPrinted.Load() }
 
 // Format represents the output format.
 type Format int
@@ -87,8 +99,10 @@ func (w *Writer) OK(data any, summary string, breadcrumbs []Breadcrumb) {
 	}
 }
 
-// Err outputs an error.
+// Err outputs an error and marks the process as having rendered one
+// (see ErrorWasRendered).
 func (w *Writer) Err(err error, code, hint string) {
+	errorPrinted.Store(true)
 	switch w.Format {
 	case FormatAgent, FormatJSON:
 		w.printJSON(ErrorResponse{

@@ -158,3 +158,28 @@ func consumeAPIBody(resp *http.Response, rerr error) ([]byte, error) {
 	}
 	return body, checkAPIStatus(body, resp)
 }
+
+// validateAndWrapFileUUIDs takes a slice of UUID strings (typically from a
+// repeatable --file flag) and returns the [{uuid: <uuid>}] payload shape
+// the Freelo server expects in `files` arrays on comments / task descriptions.
+//
+// The OpenAPI spec models attachments as {download_url, filename}, but the
+// live server treats `download_url` as "fetch this URL and store its
+// contents" — passing https://app.freelo.io/file/<uuid> there fetches the
+// HTML page, not the file. The shape the server actually accepts for an
+// already-uploaded file is {"uuid": "..."}, which is undocumented in the
+// spec but works.  This helper centralizes that body shape so
+// comments/tasks-description don't each re-encode it.
+func validateAndWrapFileUUIDs(uuids []string) ([]map[string]string, error) {
+	wrapped := make([]map[string]string, 0, len(uuids))
+	for _, u := range uuids {
+		// Light validation — full UUID parsing happens in google/uuid
+		// when a typed call demands it; here we just want a clear error
+		// before round-tripping a malformed string to the server.
+		if len(u) != 36 || u[8] != '-' || u[13] != '-' || u[18] != '-' || u[23] != '-' {
+			return nil, fmt.Errorf("--file %q does not look like a UUID (expected xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)", u)
+		}
+		wrapped = append(wrapped, map[string]string{"uuid": u})
+	}
+	return wrapped, nil
+}

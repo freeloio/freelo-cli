@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/freeloio/freelo-cli/internal/api/freelo"
@@ -91,12 +93,13 @@ func newCommentsCreateCmd(app *App) *cobra.Command {
 
 			taskID, _ := cmd.Flags().GetInt("task")
 			content, _ := cmd.Flags().GetString("content")
+			fileUUIDs, _ := cmd.Flags().GetStringArray("file")
 
 			if taskID == 0 || content == "" {
 				return fmt.Errorf("--task and --content are required")
 			}
 
-			comment, err := consumeAPIObject(app.FreeloClient.CreateComment(cmd.Context(), taskID, freelo.CreateCommentJSONRequestBody{Content: content}))
+			comment, err := postCommentWithFiles(cmd, app, taskID, 0, content, fileUUIDs)
 			if err != nil {
 				out.Err(err, "create_failed", "")
 				return err
@@ -110,6 +113,7 @@ func newCommentsCreateCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().Int("task", 0, "Task ID (required)")
 	cmd.Flags().String("content", "", "Comment content (required)")
+	cmd.Flags().StringArray("file", nil, "Attach an uploaded file by UUID (repeat for multiple: --file <uuid> --file <uuid>)")
 	return cmd
 }
 
@@ -122,12 +126,13 @@ func newCommentsEditCmd(app *App) *cobra.Command {
 			out := app.Output()
 			commentID := mustInt(args[0])
 			content, _ := cmd.Flags().GetString("content")
+			fileUUIDs, _ := cmd.Flags().GetStringArray("file")
 
 			if content == "" {
 				return fmt.Errorf("--content is required")
 			}
 
-			comment, err := consumeAPIObject(app.FreeloClient.EditComment(cmd.Context(), commentID, freelo.EditCommentJSONRequestBody{Content: content}))
+			comment, err := postCommentWithFiles(cmd, app, 0, commentID, content, fileUUIDs)
 			if err != nil {
 				out.Err(err, "edit_failed", "")
 				return err
@@ -138,5 +143,45 @@ func newCommentsEditCmd(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().String("content", "", "New content (required)")
+	cmd.Flags().StringArray("file", nil, "Attach an uploaded file by UUID (repeat for multiple). Files passed here REPLACE any previous attachments — pass all the file UUIDs you want to keep.")
 	return cmd
+}
+
+// postCommentWithFiles routes a comment create or edit through the typed
+// client when no files are attached, and through the *WithBody escape hatch
+// (with a hand-crafted JSON body) when there are. Reason: the OpenAPI spec
+// models attachments as FileUpload{download_url, filename}, but the live
+// server only honors the undocumented {"uuid": "<uuid>"} shape for files
+// already uploaded via /file/upload. The typed client can't emit that
+// shape because the spec doesn't describe it.
+//
+// Pass taskID > 0 for create; pass commentID > 0 for edit. Exactly one of
+// the two should be set.
+func postCommentWithFiles(cmd *cobra.Command, app *App, taskID, commentID int, content string, fileUUIDs []string) (map[string]any, error) {
+	ctx := cmd.Context()
+
+	if len(fileUUIDs) == 0 {
+		// Typed path — preserves spec coverage when no files involved.
+		if taskID != 0 {
+			return consumeAPIObject(app.FreeloClient.CreateComment(ctx, taskID, freelo.CreateCommentJSONRequestBody{Content: content}))
+		}
+		return consumeAPIObject(app.FreeloClient.EditComment(ctx, commentID, freelo.EditCommentJSONRequestBody{Content: content}))
+	}
+
+	files, err := validateAndWrapFileUUIDs(fileUUIDs)
+	if err != nil {
+		return nil, err
+	}
+	payload, err := json.Marshal(map[string]any{
+		"content": content,
+		"files":   files,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if taskID != 0 {
+		return consumeAPIObject(app.FreeloClient.CreateCommentWithBody(ctx, taskID, "application/json", bytes.NewReader(payload)))
+	}
+	return consumeAPIObject(app.FreeloClient.EditCommentWithBody(ctx, commentID, "application/json", bytes.NewReader(payload)))
 }
