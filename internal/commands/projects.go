@@ -60,8 +60,13 @@ func newProjectsListCmd(app *App) *cobra.Command {
 				if v, ok := p["state"]; ok {
 					item["state"] = v
 				}
-				if v, ok := p["currency_iso"]; ok {
-					item["currency"] = v
+				// Server returns currency under cost.currency on /projects,
+				// not at the top level. Older code looked for currency_iso
+				// here and never found it.
+				if cost, ok := p["cost"].(map[string]any); ok {
+					if v, ok := cost["currency"]; ok {
+						item["currency"] = v
+					}
 				}
 				if v, ok := p["date_add"]; ok {
 					item["created"] = v

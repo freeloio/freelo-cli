@@ -47,11 +47,21 @@ func newLabelsListCmd(app *App) *cobra.Command {
 				out.Err(err, "api_error", "")
 				return err
 			}
-			// Freelo returns JSON null when the workspace has no labels
-			// yet — normalize to an empty slice so the envelope stays []-
-			// typed instead of leaking null through to consumers.
+			// The /project-labels/find-available endpoint returns one of:
+			//   {"labels": [{...}, ...]}   (when there are labels)
+			//   null                       (when the pool is empty)
+			//   []                         (occasionally; older code path)
+			// Normalize all three to a flat []map[string]any so consumers
+			// (--agent, jq) get a stable shape.
 			labels := make([]map[string]any, 0)
-			_ = json.Unmarshal(body, &labels)
+			var wrapped struct {
+				Labels []map[string]any `json:"labels"`
+			}
+			if err := json.Unmarshal(body, &wrapped); err == nil && wrapped.Labels != nil {
+				labels = wrapped.Labels
+			} else {
+				_ = json.Unmarshal(body, &labels)
+			}
 			out.OK(labels, fmt.Sprintf("%d labels", len(labels)), nil)
 			return nil
 		},
@@ -226,14 +236,24 @@ func newLabelsAddToProjectCmd(app *App) *cobra.Command {
 			projectID, _ := cmd.Flags().GetInt("project")
 			name, _ := cmd.Flags().GetString("name")
 			color, _ := cmd.Flags().GetString("color")
+			private, _ := cmd.Flags().GetBool("private")
 
 			if projectID == 0 || name == "" {
 				return fmt.Errorf("--project and --name are required")
 			}
+			// Server requires `color` and `is_private` on this endpoint
+			// (the OpenAPI spec marks both *string / *bool with omitempty,
+			// but live API returns 400 "Missing item 'color'" / "is_private"
+			// if either is absent). Enforce here so the user fails fast at
+			// CLI parse time with a clear hint.
+			if color == "" {
+				return fmt.Errorf("--color is required (use a hex from Freelo's palette, e.g. #77787a)")
+			}
 
-			body := freelo.AddProjectLabelToProjectJSONRequestBody{Name: &name}
-			if color != "" {
-				body.Color = &color
+			body := freelo.AddProjectLabelToProjectJSONRequestBody{
+				Name:      &name,
+				Color:     &color,
+				IsPrivate: &private,
 			}
 
 			resp, err := consumeAPIObject(app.FreeloClient.AddProjectLabelToProject(cmd.Context(), projectID, body))
@@ -247,7 +267,8 @@ func newLabelsAddToProjectCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().IntP("project", "p", 0, "Project ID (required)")
 	cmd.Flags().String("name", "", "Label name (required)")
-	cmd.Flags().String("color", "", "Color hex code")
+	cmd.Flags().String("color", "", "Color hex code (required — server rejects without it)")
+	cmd.Flags().Bool("private", false, "Mark label as private to its owner (default false)")
 	return cmd
 }
 
