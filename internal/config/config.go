@@ -33,14 +33,6 @@ func GlobalConfigPath() string {
 	return filepath.Join(GlobalConfigDir(), "config.json")
 }
 
-// CredentialsFilename returns the credentials filename based on environment.
-func CredentialsFilename(dev bool) string {
-	if dev {
-		return "credentials-dev.json"
-	}
-	return "credentials.json"
-}
-
 // Load reads config from global config file, merges with defaults.
 func Load(dev bool) *Config {
 	cfg := &Config{

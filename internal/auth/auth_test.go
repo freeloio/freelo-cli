@@ -37,12 +37,16 @@ func (m *mockKeyring) Delete(service, key string) error {
 	return nil
 }
 
-// newTestAuth returns a BasicAuth wired to a fresh mock keyring, plus the
+// newTestAuth returns a BasicAuth wired to a fresh mock keyring under the
+// "freelo-cli" namespace (matching prod-mode NewBasicAuth(false)), plus the
 // mock itself so tests can pre-seed state.
 func newTestAuth() (*BasicAuth, *mockKeyring) {
 	m := newMockKeyring()
-	return &BasicAuth{keyring: m}, m
+	return &BasicAuth{keyring: m, namespace: "freelo-cli"}, m
 }
+
+// prodNamespace mirrors NewBasicAuth(false)'s service name.
+const prodNamespace = "freelo-cli"
 
 // clearAuthEnv removes FREELO_EMAIL / FREELO_API_KEY for the duration of a test.
 func clearAuthEnv(t *testing.T) {
@@ -57,8 +61,8 @@ func TestGetCredentialsEnvVarsWin(t *testing.T) {
 
 	ba, kr := newTestAuth()
 	// Pre-seed the keyring with different values so we can prove env wins.
-	_ = kr.Set(serviceName, emailKey, "keyring@example.com")
-	_ = kr.Set(serviceName, apiKeyKey, "keyring-key")
+	_ = kr.Set(prodNamespace, emailKey, "keyring@example.com")
+	_ = kr.Set(prodNamespace, apiKeyKey, "keyring-key")
 
 	email, key, err := ba.GetCredentials()
 	if err != nil {
@@ -72,8 +76,8 @@ func TestGetCredentialsEnvVarsWin(t *testing.T) {
 func TestGetCredentialsFallbackToKeyring(t *testing.T) {
 	clearAuthEnv(t)
 	ba, kr := newTestAuth()
-	_ = kr.Set(serviceName, emailKey, "stored@example.com")
-	_ = kr.Set(serviceName, apiKeyKey, "stored-key")
+	_ = kr.Set(prodNamespace, emailKey, "stored@example.com")
+	_ = kr.Set(prodNamespace, apiKeyKey, "stored-key")
 
 	email, key, err := ba.GetCredentials()
 	if err != nil {
@@ -91,8 +95,8 @@ func TestGetCredentialsPartialEnvFallsThrough(t *testing.T) {
 	t.Setenv("FREELO_API_KEY", "")
 
 	ba, kr := newTestAuth()
-	_ = kr.Set(serviceName, emailKey, "stored@example.com")
-	_ = kr.Set(serviceName, apiKeyKey, "stored-key")
+	_ = kr.Set(prodNamespace, emailKey, "stored@example.com")
+	_ = kr.Set(prodNamespace, apiKeyKey, "stored-key")
 
 	email, key, _ := ba.GetCredentials()
 	if email != "stored@example.com" || key != "stored-key" {
@@ -117,17 +121,17 @@ func TestStoreAndClear(t *testing.T) {
 	if err := ba.Store("new@example.com", "new-key"); err != nil {
 		t.Fatalf("Store err=%v", err)
 	}
-	if kr.store[serviceName+"/"+emailKey] != "new@example.com" {
+	if kr.store[prodNamespace+"/"+emailKey] != "new@example.com" {
 		t.Errorf("email not stored in keyring: %v", kr.store)
 	}
-	if kr.store[serviceName+"/"+apiKeyKey] != "new-key" {
+	if kr.store[prodNamespace+"/"+apiKeyKey] != "new-key" {
 		t.Errorf("api key not stored in keyring: %v", kr.store)
 	}
 
 	if err := ba.Clear(); err != nil {
 		t.Fatalf("Clear err=%v", err)
 	}
-	if _, ok := kr.store[serviceName+"/"+emailKey]; ok {
+	if _, ok := kr.store[prodNamespace+"/"+emailKey]; ok {
 		t.Error("email still present after Clear")
 	}
 }
@@ -140,8 +144,8 @@ func TestIsAuthenticated(t *testing.T) {
 		t.Error("IsAuthenticated=true on empty keyring")
 	}
 
-	_ = kr.Set(serviceName, emailKey, "x@y.z")
-	_ = kr.Set(serviceName, apiKeyKey, "k")
+	_ = kr.Set(prodNamespace, emailKey, "x@y.z")
+	_ = kr.Set(prodNamespace, apiKeyKey, "k")
 	if !ba.IsAuthenticated() {
 		t.Error("IsAuthenticated=false after Store")
 	}

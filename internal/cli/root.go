@@ -39,8 +39,7 @@ freelo works with any AI agent that can run shell commands.`,
 
 			// Load config and auth based on environment
 			cfg := config.Load(devMode)
-			credsFile := config.CredentialsFilename(devMode)
-			authProvider := auth.NewBasicAuth(credsFile)
+			authProvider := auth.NewBasicAuth(devMode)
 
 			// Build the Freelo client. NewClientWithResponses only fails on a
 			// malformed base URL, which config.Load has already validated.
