@@ -43,3 +43,56 @@ jobs:
 
       - name: Test
         run: go test ./...
+
+  release-dryrun:
+    name: GoReleaser snapshot
+    runs-on: ubuntu-latest
+    # Snapshot build proves all 6 release artifacts compile cleanly on every
+    # PR. No publishing — `--snapshot` skips the GitHub release step.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # GoReleaser reads the full commit history
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run GoReleaser (snapshot, no publish)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish
+
+      - name: Smoke-test the linux/amd64 binary
+        run: |
+          set -e
+          tar -tzf dist/freelo_*_linux_amd64.tar.gz
+          tar -xzf dist/freelo_*_linux_amd64.tar.gz -C /tmp/ freelo
+          /tmp/freelo version
+
+  gosec:
+    name: gosec security scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run gosec
+        uses: securego/gosec@master
+        with:
+          # Scan everything except the generated client (auto-generated code
+          # carries spurious findings that would drown the real signal).
+          args: '-exclude-dir=internal/api/freelo -fmt=sarif -out=gosec-results.sarif ./...'
+
+      - name: Upload SARIF to GitHub code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: gosec-results.sarif

@@ -146,6 +146,10 @@ func (d *retryingDoer) Do(req *http.Request) (*http.Response, error) {
 
 		d.waitForRateLimit()
 
+		// #nosec G107 G704 -- the URL is constructed by oapi-codegen from
+		// cfg.BaseURL (HTTPS-enforced in config.Load) plus spec-defined paths
+		// and typed parameters; there is no user-controlled URL surface that
+		// could carry an attacker payload into Do().
 		resp, err := d.inner.Do(req)
 		lastResp, lastErr = resp, err
 
@@ -227,6 +231,8 @@ func sleepWithBackoff(attempt int, ctx context.Context) {
 	if exp > backoffMax {
 		exp = backoffMax
 	}
+	// #nosec G404 -- jitter is timing-only (full-jitter retry), not a
+	// security boundary; crypto/rand would be wasted entropy.
 	delay := time.Duration(rand.Int64N(int64(exp)))
 	sleepCtx(ctx, delay)
 }

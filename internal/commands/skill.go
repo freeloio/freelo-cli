@@ -74,10 +74,12 @@ Targets:
 
 			install := func(name, path string) error {
 				dir := filepath.Dir(path)
-				if err := os.MkdirAll(dir, 0755); err != nil {
+				// 0700 dir + 0600 file: skill files are user-private —
+				// Claude Code / Codex run as the same user and can read.
+				if err := os.MkdirAll(dir, 0o700); err != nil {
 					return fmt.Errorf("failed to create %s: %w", dir, err)
 				}
-				if err := os.WriteFile(path, data, 0644); err != nil {
+				if err := os.WriteFile(path, data, 0o600); err != nil {
 					return fmt.Errorf("failed to write %s: %w", path, err)
 				}
 				fmt.Printf("Installed skill to %s\n", path)

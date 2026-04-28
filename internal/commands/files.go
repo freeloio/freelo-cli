@@ -118,6 +118,10 @@ func newFilesDownloadCmd(app *App) *cobra.Command {
 				outputPath = filepath.Base(outputPath)
 			}
 
+			// #nosec G304 -- outputPath is either an absolute path the user
+			// explicitly passed via --output, or filepath.Base()-stripped
+			// data from the server's Content-Disposition / the file UUID,
+			// so it is rooted in the working directory.
 			file, err := os.Create(outputPath)
 			if err != nil {
 				return fmt.Errorf("failed to create file: %w", err)
@@ -150,6 +154,9 @@ func newFilesUploadCmd(app *App) *cobra.Command {
 			out := app.Output()
 			filePath := args[0]
 
+			// #nosec G304 -- filePath is the user's own positional CLI arg
+			// pointing at a file on their machine; the user IS the trust
+			// boundary for an upload command.
 			info, err := os.Stat(filePath)
 			if err != nil {
 				return fmt.Errorf("failed to stat file: %w", err)
@@ -158,6 +165,7 @@ func newFilesUploadCmd(app *App) *cobra.Command {
 				return fmt.Errorf("file exceeds 100MB limit")
 			}
 
+			// #nosec G304 -- same: user-provided upload source path.
 			data, err := os.ReadFile(filePath)
 			if err != nil {
 				return fmt.Errorf("failed to read file: %w", err)
@@ -173,7 +181,9 @@ func newFilesUploadCmd(app *App) *cobra.Command {
 			if _, err := part.Write(data); err != nil {
 				return fmt.Errorf("failed to write file data: %w", err)
 			}
-			writer.Close()
+			// Close finalizes the multipart boundary in the buffer; the
+			// underlying writer is bytes.Buffer (no I/O can fail).
+			_ = writer.Close()
 
 			resp, err := app.FreeloClient.UploadFileWithBody(cmd.Context(), writer.FormDataContentType(), &buf)
 			if err != nil {

@@ -237,7 +237,7 @@ func printTable(items []map[string]any) {
 		fmt.Fprintln(tw, strings.Join(vals, "\t"))
 	}
 
-	tw.Flush()
+	_ = tw.Flush()
 }
 
 func printObject(obj map[string]any) {
@@ -247,7 +247,7 @@ func printObject(obj map[string]any) {
 			fmt.Fprintf(tw, "%s:\t%s\n", k, formatValue(v))
 		}
 	}
-	tw.Flush()
+	_ = tw.Flush()
 }
 
 func formatValue(v any) string {
