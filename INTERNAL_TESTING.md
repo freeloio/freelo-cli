@@ -1,309 +1,364 @@
-# Freelo CLI — Interní testování
+# Freelo CLI — interní zpráva a testování
 
-Tento dokument popisuje jak si nainstalovat, otestovat a používat Freelo CLI interně, než ho zveřejníme.
+Krátký dokument o tom, co jsme postavili, jak to funguje, jak se to bude
+samo aktualizovat, jak s tím pracovat a co teď chceme od interních
+testerů. Verze CLI v době psaní: **v1.0.0-dev**, zatím v privátním repu
+[`freeloio/freelo-cli`](https://github.com/freeloio/freelo-cli).
 
-## 1. Instalace (pro testera)
+---
 
-### Varianta A: Z repozitáře (doporučeno)
+## 1. Co to je
+
+`freelo` je oficiální command-line interface pro Freelo.io. Ovládá celé
+Freelo z terminálu — jak ručně z příkazové řádky, tak přes AI agenty
+(Claude Code, Codex, OpenCode).
+
+- **27 command skupin**, ~70 endpointů — projekty, tasklisty, úkoly,
+  subúkoly, komentáře, výkazy, štítky, custom fields, soubory,
+  vyhledávání, audit log, OOO, invoices, …
+- **Postaveno na oficiálním Freelo OpenAPI specu** (žádné ručně
+  zadrátované URL — stačí říct co chceš a typed klient sestaví request)
+- **Funguje pro lidi i pro agenty** v jednom binary — default je hezký
+  terminálový výstup, `--agent` přepne na čistý parsovatelný JSON
+- **Bundlovaný skill pro AI** — jeden příkaz a Claude Code ví všechno o
+  Freelu a používá `freelo` automaticky
+
+## 2. Jak to funguje pod kapotou
+
+```
+tvůj příkaz  →  freelo CLI
+                    │
+                    ▼
+            wrapper (auth + User-Agent + rate limit + retry)
+                    │
+                    ▼
+            generovaný klient (z OpenAPI specu)
+                    │
+                    ▼
+            api.freelo.io
+```
+
+- **Auth**: env vars `FREELO_EMAIL` + `FREELO_API_KEY` mají přednost
+  (CI, agenty), jinak credentials z **OS keyringu** (Keychain na macOS,
+  Credential Manager na Windows, Secret Service na Linux desktopu).
+  Pro headless prostředí (Docker bez DBus, server bez UI) je escape
+  `FREELO_KEYRING=file` → JSON soubor 0600 v `~/.config/freelo/`.
+- **Rate limit**: ~2.4 s mezi voláními → nikdy se nedostaneš na 25/min
+  Freelo limit
+- **Retry**: 429 / 5xx → 3× exponenciální backoff s jitterem,
+  respektuje `Retry-After`
+- **User-Agent**: `FreeloCLI/<verze>` — backend si tak může měřit, kdo
+  CLI používá
+
+## 3. Jak se to bude samo aktualizovat na změny v API
+
+Toto byl jeden z hlavních důvodů celé refaktorizace.
+
+```
+každé pondělí 6:00 UTC
+        │
+        ▼
+GitHub Actions: update-api-spec.yml
+        │
+        ▼
+1. curl https://api.freelo.io/docs/v1/freelo-api.yaml
+2. patch (Client → BusinessClient — kvůli kolizi názvů)
+3. go generate → nový klient
+4. go build + go test
+        │
+        ▼
+Pokud spec ≠ vendored:  otevře PR
+Pokud spec = stejný:    no-op (žádný spam)
+```
+
+V pondělí ráno přijde notifikace o PR, projedeš diff:
+
+| Druh změny v API | Ruční práce |
+|---|---|
+| Nový optional parametr | Žádná, smerguj |
+| Nový endpoint | Pokud chceš command, dopiš ho; jinak smerguj a nic se nestane |
+| Přejmenování pole / breaking change | Build padne, dopíšeš opravu (typicky 2-3 řádky) |
+| Smazaný endpoint | Build padne, smažeš odpovídající command |
+
+Frekvence změn ve Freelo specu je nízká, většinou půjde jen o smerge.
+
+## 4. Instalace
+
+### Pro testera (z repa)
 
 ```bash
-# Naklonovat repo
+# Klonovat
 git clone git@github.com:freeloio/freelo-cli.git
 cd freelo-cli
 
-# Build + instalace do ~/bin (bez sudo)
+# Build + instalace do ~/bin
 make install
 
 # Ověřit
 freelo version
 ```
 
-> Pokud `freelo` příkaz není nalezen, přidej `~/bin` do PATH:
-> ```bash
-> echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
-> source ~/.zshrc
-> ```
-
-### Varianta B: Přímý Go install
-
+Pokud `~/bin` není v PATH:
 ```bash
-go install github.com/freeloio/freelo-cli/cmd/freelo@latest
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 ```
 
-> Vyžaduje Go 1.21+. Binary se nainstaluje do `$GOPATH/bin/`.
+### Alternativy
 
-### Varianta C: Stáhnout binary manuálně
+- `go install github.com/freeloio/freelo-cli/cmd/freelo@latest` (vyžaduje
+  Go 1.24+)
+- Stáhnout binary z [GitHub Releases](https://github.com/freeloio/freelo-cli/releases)
+  (zatím prázdné, dokud nevyjde v1.0.0)
 
-1. Jít na https://github.com/freeloio/freelo-cli/releases
-2. Stáhnout archiv pro svůj OS (darwin_arm64 pro Apple Silicon Mac)
-3. Rozbalit a přesunout `freelo` do PATH
+### Aktualizace na novou verzi
+```bash
+cd freelo-cli && git pull && make install
+```
 
----
+## 5. Přihlášení
 
-## 2. Přihlášení
+API klíč najdeš na [app.freelo.io/profil/nastaveni](https://app.freelo.io/profil/nastaveni).
 
-Potřebuješ svůj Freelo API klíč — najdeš ho v:
-**https://app.freelo.io/profil/nastaveni**
-
-### Produkce (výchozí)
 ```bash
 freelo auth login
 # Email: tvuj@email.com
-# API Key: [zadej klíč, nebude vidět]
+# API Key: <vloží se nezobrazí>
 ```
 
-### Devel prostředí
+Credentials se uloží do OS keyringu (na macOS uvidíš Keychain prompt,
+to je v pořádku — povol). Stav:
 ```bash
-# Nejdřív nastavit URL dev API (dostaneš od team leada)
-export FREELO_DEV_URL=https://tvoje-dev-api-url/v1
-
-# Přidat do ~/.zshrc pro trvalé nastavení:
-echo 'export FREELO_DEV_URL=https://tvoje-dev-api-url/v1' >> ~/.zshrc
-
-# Přihlásit se na devel
-freelo auth login --dev
-# Email: tvuj devel email
-# API Key: tvuj devel API klíč
+freelo auth status
 ```
 
-Credentials jsou uloženy **odděleně** — můžeš být přihlášený do obou zároveň:
-- Produkce: `~/.config/freelo/credentials.json`
-- Devel: `~/.config/freelo/credentials-dev.json`
-
-Ověření:
-```bash
-freelo auth status           # → stav produkce
-freelo auth status --dev     # → stav develu
-```
-
-### Používání s --dev
-Stačí přidat `--dev` k jakémukoliv příkazu:
-```bash
-freelo projects list --dev       # projekty na develu
-freelo tasks list --dev          # úkoly na develu
-freelo search "test" --dev       # hledání na develu
-```
-
-V terminálu se zobrazí indikátor `[DEV]` s URL, aby bylo jasné proti čemu jedete.
-
-### Pro CI/automatizaci (bez interaktivního loginu):
+### Pro CI / agenty / sandboxy
 ```bash
 export FREELO_EMAIL=tvuj@email.com
-export FREELO_API_KEY=tvuj-api-klic
+export FREELO_API_KEY=tvuj-klic
 freelo projects list
 ```
 
----
-
-## 3. Testovací checklist
-
-Projdi tyto příkazy a ověř, že fungují s tvým účtem:
-
-### Základní operace
+### Headless Linux / Docker bez DBus
 ```bash
-# Ověření přihlášení
-freelo auth status
-
-# Tvůj profil
-freelo users me
-
-# Seznam spolupracovníků
-freelo users list
+export FREELO_KEYRING=file
+freelo auth login
+# uloží do ~/.config/freelo/credentials.json (0600)
 ```
 
-### Projekty
+### Dev prostředí (separátní credentials)
 ```bash
-# Výpis aktivních projektů
-freelo projects list
-
-# Detail konkrétního projektu (dosáď ID z výpisu výše)
-freelo projects show <ID>
+export FREELO_DEV_URL=https://dev-api.example.com/v1
+freelo auth login --dev      # zvlášť uložené
+freelo projects list --dev   # všechno s --dev jde proti devu
 ```
 
-### Úkoly
+## 6. Jak s tím pracovat — quick tour
+
+### Pro lidi
 ```bash
-# Všechny tvé úkoly
-freelo tasks list
-
-# Úkoly v konkrétním projektu
-freelo tasks list --project <ID>
-
-# Hledání úkolů
-freelo tasks list --search "klíčové slovo"
-
-# Detail úkolu
-freelo tasks show <TASK_ID>
-```
-
-### Vyhledávání
-```bash
-freelo search "test"
-freelo search "bug" --type task
-```
-
-### Time tracking
-```bash
-# Zkontrolovat stav (jestli běží časovač)
-freelo tracking status
-
-# Spustit (na nějakém úkolu)
-freelo tracking start --task <TASK_ID>
-
-# Zastavit
+freelo projects list                              # tvoje projekty
+freelo tasks list --project 12345                 # úkoly v projektu
+freelo tasks show 29576272                        # detail úkolu
+freelo tasks create --project 12345 --tasklist 67890 --name "Něco"
+freelo tasks edit 29576272 --priority h --due-date 2026-12-31
+freelo tasks finish 29576272
+freelo search "PRD"                               # napříč vším
+freelo tracking start --task 29576272
 freelo tracking stop
 ```
 
-### Výkazy práce
+### Pro AI agenty
 ```bash
-freelo reports list --project <ID>
+freelo skill install claude        # nebo codex / opencode / all
 ```
 
-### Komentáře
+Pak otevři **novou konverzaci** v Claude Code a mluv normálně:
+
+> "Ukaž mi moje aktivní úkoly v projektu Marketing s deadline tento
+> týden a vytvoř výkaz na 90 minut na ten nejstarší."
+
+Claude si sám zavolá správné `freelo` příkazy a odpoví linkem.
+
+### Output módy (užitečné pro skripty)
 ```bash
+freelo projects list                  # default (TTY: tabulka, pipe: JSON)
+freelo projects list --agent          # raw JSON, nejvhodnější pro agenty
+freelo projects list --json           # obálka {ok, data, summary, breadcrumbs}
+freelo projects list --ids-only       # jen IDčka, řádek po řádku
+freelo projects list --count          # jen počet
+freelo projects list --quiet          # minimum textu
+```
+
+### Escape hatch pro endpointy bez dedikovaného commandu
+```bash
+freelo api get /archived-projects --agent
+freelo api post /search --data '{"search_query":"X"}' --agent
+freelo api delete /task/12345 --agent
+```
+
+## 7. Co teď chceme po testerech
+
+Nedávno proběhlo komplexní E2E testování (117 case, 11 kol — viz
+[TESTING_REPORT_v1.0.0.md](TESTING_REPORT_v1.0.0.md)). Našli jsme a
+opravili **6 bugů**. Teď chceme **lidský feedback** od reálného použití
+před public launchem.
+
+### Cíl interního testování
+1. Ověřit, že CLI funguje **na vašich účtech** (jiných než `info@byurban.cz`)
+2. Najít **edge cases** specifické pro různé typy projektů (velké, malé,
+   archivované, různé custom fields, paid-plan funkce, …)
+3. Ověřit, že **AI integrace** je užitečná v reálných úlohách
+4. Najít cokoliv, co je **nelibné na UX / pojmenování příkazů / dokumentaci**
+   ještě před tím, než to půjde ven
+
+### Test plán (cca 30 minut)
+
+#### Fáze 1 — instalace + login (5 min)
+- [ ] Klonovat repo, `make install`, `freelo version` vypíše `v1.0.0-dev`
+- [ ] `freelo auth login` na svém účtu, OS keyring nepoptá heslo opakovaně
+- [ ] `freelo auth status` ukáže tvoje jméno + email
+
+#### Fáze 2 — bezpečné read-only příkazy (10 min)
+Projedi tyto a checkni, že to dává smysl:
+```bash
+freelo users me
+freelo projects list
+freelo projects show <ID-jednoho-projektu>
+freelo tasks list --project <ID>
+freelo tasks list --search "klíčové slovo"
+freelo tasklists list --project <ID>
+freelo workers list --project <ID>
 freelo comments list --project <ID>
-```
-
-### Štítky, notifikace, další
-```bash
-freelo labels list
+freelo reports list --project <ID>
 freelo notifications list
-freelo notifications list --unread
 freelo events list --project <ID>
-freelo templates list
-freelo custom-fields types
+freelo search "něco"
 ```
 
-### Agent mode (pro AI agenty)
-```bash
-# Každý příkaz s --agent vrací čistý JSON
-freelo projects list --agent
-freelo tasks list --project <ID> --agent
+Pozoruj: dává to smysl? Chybí tam něco? Je rychlost OK? Jsou error
+hlášky srozumitelné?
 
-# JSON s obálkou (ok, data, summary, breadcrumbs)
-freelo projects list --json
+#### Fáze 3 — write paths na throwaway projektu (10 min)
+**Vytvoř si vlastní testovací projekt** (`freelo projects create --name
+"[Test CLI] můj test"`), neboj sahat na produkční data:
+```bash
+PID=<id-tvého-test-projektu>
+
+# Plný lifecycle úkolu
+freelo tasklists create --project $PID --name "TL" --agent
+TLID=<vrácené-id>
+freelo tasks create --project $PID --tasklist $TLID --name "task 1" --priority h
+TASKID=<vrácené-id>
+freelo tasks edit $TASKID --due-date 2026-12-31
+freelo tasks description $TASKID --set "<p>popis</p>"
+freelo tasks finish $TASKID
+freelo tasks activate $TASKID
+
+# Komentáře + soubory
+freelo comments create --task $TASKID --content "test komentář"
+freelo files upload /tmp/cokoliv.txt          # → vrátí UUID
+freelo comments create --task $TASKID --content "s přílohou" --file <UUID>
+freelo files download <UUID> --output /tmp/zpet.txt
+
+# Time tracking
+freelo tracking start --task $TASKID --note "test session"
+freelo tracking stop
+
+# Výkaz
+freelo reports create --task $TASKID --minutes 30 --note "test"
+
+# Cleanup
+freelo projects archive $PID
+freelo projects delete $PID
 ```
 
-### Raw API přístup
+#### Fáze 4 — AI integrace (5 min)
 ```bash
-# Libovolný endpoint
-freelo api get /projects
-freelo api post /search --data '{"search_query":"test"}'
-```
-
----
-
-## 4. Testování s AI agentem
-
-### Claude Code
-
-```bash
-# Nainstalovat skill
 freelo skill install claude
 ```
+Otevři **novou konverzaci** v Claude Code a zkus 2-3 vlastní úlohy:
+- "Kolik aktivních úkolů mám v projektu X?"
+- "Vytvoř mi úkol 'Y' v projektu Z, prioritu vysokou, deadline příští pátek"
+- "Najdi všechny komentáře z minulého týdne, kde se mluví o 'PRD'"
 
-Pak otevři **novou konverzaci** v Claude Code a zkus:
-- "Ukaž mi moje projekty ve Freelu"
-- "Kolik mám aktivních úkolů?"
-- "Najdi všechny úkoly s termínem tento týden"
-- "Spusť mi časovač na úkolu 12345"
+Pozoruj jestli Claude:
+- správně používá `freelo` příkazy
+- používá `--agent` flag pro JSON
+- odkazy na úkoly/projekty jsou klikatelné
+- chyby jsou srozumitelné
 
-Claude by měl automaticky použít `freelo` příkazy.
+### Co když najdeš bug
 
-### Codex / OpenCode
-
-```bash
-freelo skill install codex
-freelo skill install opencode
-# nebo
-freelo skill install all
-```
-
----
-
-## 5. Co testovat a na co dávat pozor
-
-### Funguje správně?
-- [ ] Přihlášení a ověření credentials
-- [ ] Výpis projektů (vlastní i přizvané)
-- [ ] Výpis úkolů s filtry (projekt, hledání, worker)
-- [ ] Detail úkolu (včetně komentářů, štítků, custom fields)
-- [ ] Vyhledávání
-- [ ] Time tracking (start/stop/status)
-- [ ] Výpis výkazů práce
-- [ ] Agent mode (--agent) vrací čistý parsovatelný JSON
-- [ ] JSON mode (--json) vrací obálku s breadcrumbs
-- [ ] Chybové hlášky jsou srozumitelné
-
-### Zápis (POZOR — mění data!)
-- [ ] Vytvořit testovací úkol: `freelo tasks create --project <ID> --tasklist <ID> --name "Test CLI"`
-- [ ] Dokončit ho: `freelo tasks finish <TASK_ID>`
-- [ ] Znovu otevřít: `freelo tasks activate <TASK_ID>`
-- [ ] Přidat komentář: `freelo comments create --task <ID> --content "Test komentář z CLI"`
-- [ ] Vytvořit výkaz: `freelo reports create --task <ID> --minutes 15 --note "Test"`
-- [ ] Smazat testovací data po sobě
-
-### Bezpečnost
-- [ ] `~/.config/freelo/credentials.json` má oprávnění 600 (pouze vlastník)
-- [ ] Heslo/API klíč se nezobrazuje v terminálu při zadávání
-- [ ] `freelo auth logout` smaže credentials
-
----
-
-## 6. Nahlášení problémů
-
-Když najdeš bug nebo něco nefunguje:
-
-1. Zapiš **příkaz** co jsi spustil
-2. Zapiš **výstup** (ideálně s `--agent` pro přesný JSON)
-3. Zapiš **co jsi očekával**
-4. Vytvoř issue na https://github.com/freeloio/freelo-cli/issues
+Vytvoř issue na [github.com/freeloio/freelo-cli/issues](https://github.com/freeloio/freelo-cli/issues)
+s:
+1. **Příkaz** který jsi spustil
+2. **Co se stalo** (ideálně výstup s `--agent` pro přesný JSON)
+3. **Co jsi čekal**
+4. **OS** (macOS / Linux / WSL)
 
 Příklad:
 ```
-Příkaz: freelo tasks list --project 123 --agent
-Výstup: []
-Očekávání: Mělo vrátit 15 úkolů (v projektu jich tolik je)
+Příkaz:    freelo tasks list --project 591279 --agent
+Výstup:    [] (prázdno)
+Očekávání: V projektu mám 23 aktivních úkolů, viděl jsem ve webu
+OS:        macOS Apple Silicon
 ```
+
+### Destruktivní operace — opatrně
+
+Tyto **neodzkoušej** na produkčních datech (skutečně mění stav nebo
+posílají emaily):
+- `freelo workers invite` → odešle pozvánkový email
+- `freelo workers remove` → odebere uživatele z projektu
+- `freelo invoices mark-invoiced` → ovlivňuje fakturační artefakty
+- `freelo projects delete` → mazání je nevratné
+
+## 8. Známé limitace
+
+- **Custom fields lifecycle** vyžaduje placený Freelo plán (free tier
+  vrátí 402 "Payment required").
+- **Některé subcommandy z legacy v0.1.0 jsou pryč** protože je Freelo
+  API nikdy nepodporovalo (subtasks `show/finish/activate/delete`,
+  `comments delete`, edit/delete tasklistů). Vrací 404 z API, takže CLI
+  je teď nenabízí.
+- **Notes neumí přílohy** (Freelo backend `files` field na poznámkách
+  silently ignoruje — známý quirk).
+
+## 9. Přehled skupin příkazů
+
+```
+auth          login | logout | status
+users         me | list
+workers       list | invite | remove
+projects      list | show | create | archive | activate | delete
+tasklists     list | show | create
+tasks         list | show | create | edit | finish | activate |
+              move | description
+subtasks      list | create
+comments      list | create | edit
+labels        list | create | add-to-task | remove-from-task |
+              add-to-project | remove-from-project | edit | delete
+custom-fields types | list | create | rename | delete | restore |
+              set-value | delete-value | enum-* | set-enum-value
+notes         create | show | edit | delete
+tracking      start | stop | status
+reports       list | create | edit | delete
+files         list | upload | download
+templates     list | create-project | create-tasklist | create-task
+pinned        list | create | delete
+notifications list | read | unread
+events        list
+out-of-office status | enable | disable
+invoices      list | show | mark-invoiced
+search        <query> [--type ...] [--project ...]
+api           get | post | put | delete <path>
+skill         show | install
+version
+```
+
+Detaily: `freelo <skupina> --help` a `freelo <skupina> <command> --help`.
 
 ---
 
-## 7. Jak aktualizovat na novou verzi
-
-```bash
-cd freelo-cli
-git pull
-make install
-```
-
----
-
-## 8. Přehled příkazů (quick reference)
-
-```
-freelo auth login|logout|status
-freelo projects list|show|create|archive|activate|delete
-freelo tasks list|show|create|edit|finish|activate|move|description
-freelo subtasks list|show|create|finish|activate|delete
-freelo tasklists list|show|create
-freelo search <query>
-freelo comments list|create|edit|delete
-freelo labels list|create|edit|delete|add-to-task|remove-from-task|add-to-project|remove-from-project
-freelo tracking start|stop|status
-freelo reports list|create|edit|delete
-freelo notes create|show|edit|delete
-freelo files list|download|upload
-freelo custom-fields types|list|create|rename|delete|restore|set-value|delete-value|enum-*
-freelo templates list|create-project|create-tasklist|create-task
-freelo pinned list|create|delete
-freelo users me|list
-freelo workers list|invite|remove
-freelo out-of-office status|enable|disable
-freelo notifications list|read|unread
-freelo invoices list|show|mark-invoiced
-freelo events list
-freelo api get|post|put|delete <path>
-freelo skill show|install
-freelo version
-```
-
-Každý příkaz podporuje: `--agent` (čistý JSON) | `--json` (JSON s obálkou) | `--quiet` | `--ids-only` | `--count`
+Díky za testování. Pošli prosím feedback do issues nebo přímo Markovi
+([marek.urban@freelo.io](mailto:marek.urban@freelo.io)).
