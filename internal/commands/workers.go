@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/freeloio/freelo-cli/internal/api/freelo"
+	freelo "github.com/freeloio/freelo-go/freeloapi"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/spf13/cobra"
 )

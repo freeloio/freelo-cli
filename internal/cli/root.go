@@ -5,10 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/freeloio/freelo-cli/internal/api"
-	"github.com/freeloio/freelo-cli/internal/auth"
+	freelosdk "github.com/freeloio/freelo-go"
+
 	"github.com/freeloio/freelo-cli/internal/commands"
 	"github.com/freeloio/freelo-cli/internal/config"
+	"github.com/freeloio/freelo-cli/internal/credstore"
 	"github.com/freeloio/freelo-cli/internal/output"
 )
 
@@ -37,13 +38,18 @@ freelo works with any AI agent that can run shell commands.`,
 			// Resolve --dev flag
 			devMode, _ := cmd.Flags().GetBool("dev")
 
-			// Load config and auth based on environment
+			// Load config and credential store based on environment.
 			cfg := config.Load(devMode)
-			authProvider := auth.NewBasicAuth(devMode)
+			store := credstore.New(devMode)
 
-			// Build the Freelo client. NewClientWithResponses only fails on a
-			// malformed base URL, which config.Load has already validated.
-			freeloClient, err := api.NewFreeloClient(cfg, authProvider, "FreeloCLI/"+Version)
+			// Build the Freelo SDK client. The SDK owns transport, auth,
+			// rate-limit, and retry; the CLI only contributes a credential
+			// lookup function and a User-Agent.
+			sdk, err := freelosdk.New(
+				freelosdk.WithBaseURL(cfg.BaseURL),
+				freelosdk.WithAuth(store.AsProvider()),
+				freelosdk.WithUserAgent("FreeloCLI/"+Version),
+			)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "failed to build Freelo client: %v\n", err)
 				return
@@ -74,8 +80,9 @@ freelo works with any AI agent that can run shell commands.`,
 			// Build app context
 			app = &commands.App{
 				Config:       cfg,
-				Auth:         authProvider,
-				FreeloClient: freeloClient,
+				Auth:         store,
+				FreeloClient: sdk.API,
+				SDK:          sdk,
 				Output: func() *output.Writer {
 					return output.NewWriter(outputFormat)
 				},

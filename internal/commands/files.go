@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/freeloio/freelo-cli/internal/api/freelo"
+	freelo "github.com/freeloio/freelo-go/freeloapi"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )

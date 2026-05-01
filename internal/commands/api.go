@@ -4,24 +4,21 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
-	"github.com/freeloio/freelo-cli/internal/api"
 	"github.com/spf13/cobra"
 )
 
 // NewAPICmd creates the 'api' command for raw API access.
 //
-// This is the CLI's generic escape hatch for endpoints not yet covered by
+// This is the CLI's escape hatch for endpoints not yet covered by
 // purpose-built subcommands. After Phase 3 the typed Freelo client covers
 // the whole OpenAPI spec, but `api get/post/put/delete` is still useful
 // for calling internal / undocumented endpoints or for quick debugging.
 //
-// All four subcommands go through the same retrying/rate-limited doer and
-// auth/UA editors as the typed commands — we reuse the underlying
-// *freelo.Client rather than spawning http.DefaultClient.
+// All four subcommands route through the SDK's Do, so they get the same
+// auth + User-Agent + rate-limit + retry as the typed commands.
 func NewAPICmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "api",
@@ -39,16 +36,14 @@ func NewAPICmd(app *App) *cobra.Command {
 	return cmd
 }
 
-// doRaw performs an arbitrary HTTP call against the Freelo API using the
-// wrapper's doer + editors. Returns the decoded JSON body (or raw on
-// parse failure).
-func doRaw(app *App, method, path string, body any) (any, error) {
-	raw, ok := api.RawClientFromResponses(app.FreeloClient)
-	if !ok {
-		return nil, fmt.Errorf("internal: FreeloClient is not a *freelo.Client")
+// doRaw performs an arbitrary HTTP call through the SDK pipeline and
+// decodes the JSON response (or returns the raw bytes on parse failure).
+func doRaw(cmd *cobra.Command, app *App, method, path string, body any) (any, error) {
+	if app.SDK == nil {
+		return nil, fmt.Errorf("internal: SDK client not initialized")
 	}
 
-	var reader io.Reader
+	var reader *bytes.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
@@ -57,21 +52,27 @@ func doRaw(app *App, method, path string, body any) (any, error) {
 		reader = bytes.NewReader(b)
 	}
 
-	url := raw.Server + path
-	req, err := http.NewRequest(method, url, reader)
+	url := app.SDK.BaseURL()
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	url += path
+
+	var req *http.Request
+	var err error
+	if reader != nil {
+		req, err = http.NewRequestWithContext(cmd.Context(), method, url, reader)
+	} else {
+		req, err = http.NewRequestWithContext(cmd.Context(), method, url, nil)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("new request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-
-	// Run the shared editors (Basic Auth + User-Agent) before the call.
-	for _, edit := range raw.RequestEditors {
-		if err := edit(req.Context(), req); err != nil {
-			return nil, err
-		}
+	if reader != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 
-	resp, err := raw.Client.Do(req)
+	resp, err := app.SDK.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func newAPIGetCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			data, err := doRaw(app, "GET", ensureSlashPrefix(args[0]), nil)
+			data, err := doRaw(cmd, app, "GET", ensureSlashPrefix(args[0]), nil)
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
@@ -133,7 +134,7 @@ func newAPIPostCmd(app *App) *cobra.Command {
 				}
 			}
 
-			data, err := doRaw(app, "POST", ensureSlashPrefix(args[0]), body)
+			data, err := doRaw(cmd, app, "POST", ensureSlashPrefix(args[0]), body)
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
@@ -162,7 +163,7 @@ func newAPIPutCmd(app *App) *cobra.Command {
 				}
 			}
 
-			data, err := doRaw(app, "PUT", ensureSlashPrefix(args[0]), body)
+			data, err := doRaw(cmd, app, "PUT", ensureSlashPrefix(args[0]), body)
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err
@@ -182,7 +183,7 @@ func newAPIDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			data, err := doRaw(app, "DELETE", ensureSlashPrefix(args[0]), nil)
+			data, err := doRaw(cmd, app, "DELETE", ensureSlashPrefix(args[0]), nil)
 			if err != nil {
 				out.Err(err, "api_error", "")
 				return err

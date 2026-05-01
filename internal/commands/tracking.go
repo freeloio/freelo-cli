@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 
-	"github.com/freeloio/freelo-cli/internal/api/freelo"
+	freelo "github.com/freeloio/freelo-go/freeloapi"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )

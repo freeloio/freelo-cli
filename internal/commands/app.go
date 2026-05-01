@@ -1,9 +1,10 @@
 package commands
 
 import (
-	"github.com/freeloio/freelo-cli/internal/api/freelo"
-	"github.com/freeloio/freelo-cli/internal/auth"
+	freelosdk "github.com/freeloio/freelo-go"
+	"github.com/freeloio/freelo-go/freeloapi"
 	"github.com/freeloio/freelo-cli/internal/config"
+	"github.com/freeloio/freelo-cli/internal/credstore"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -11,8 +12,9 @@ import (
 // App is the shared dependency container passed to all commands.
 type App struct {
 	Config       *config.Config
-	Auth         auth.Provider
-	FreeloClient *freelo.ClientWithResponses
+	Auth         *credstore.Store
+	FreeloClient *freeloapi.ClientWithResponses
+	SDK          *freelosdk.Client
 	Output       func() *output.Writer
 	Version      string
 }

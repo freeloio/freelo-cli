@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/freeloio/freelo-cli/internal/api/freelo"
+	freelo "github.com/freeloio/freelo-go/freeloapi"
 	"github.com/spf13/cobra"
 )
 
