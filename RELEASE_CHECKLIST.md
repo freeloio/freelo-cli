@@ -12,7 +12,9 @@ it terse. Long-form launch notes for users live in `RELEASE_NOTES_v<x>.md`.
 - [ ] `make test-integration` passes against the live test project (needs
       a fresh API key in `.env.freelo-test` — regenerate at
       <https://app.freelo.io/profil/nastaveni> if 401s appear).
-- [ ] `make gen` is a no-op (or the generated diff is reviewed).
+- [ ] `freelo-go` pin in `go.mod` is on a tagged release (no `replace`
+      directive remaining). If you need a not-yet-tagged SDK change in
+      the CLI, tag the SDK first.
 - [ ] `goreleaser release --snapshot --clean --skip=publish` succeeds and
       produces six archives + `checksums.txt` in `dist/`.
 - [ ] `CHANGELOG.md` Unreleased section is renamed to the new version
@@ -64,8 +66,9 @@ GITHUB_TOKEN=<gh-pat-with-repo-write> goreleaser release --clean
 - [ ] Embedded skill version (`freelo skill show | head -3`) is the new
       release; users on the old version need `freelo skill install <target>`
       to refresh it.
-- [ ] Sanity-check the [`update-api-spec.yml`](.github/workflows/update-api-spec.yml)
-      cron is still scheduled for the following Monday.
+- [ ] Sanity-check `freelo-go`'s `update-api-spec.yml` cron — spec
+      regeneration moved to the SDK repo in v1.1.0. This repo's CI no
+      longer runs `make gen`.
 
 ## Smoke matrix (clean machine)
 
@@ -79,6 +82,6 @@ to catch path / permission / DBus issues we can't see locally:
 | `freelo auth status` | authenticated | authenticated | authenticated |
 | `freelo projects list` | ok | ok | ok |
 | `freelo skill install claude` | writes `~/.claude/skills/freelo/SKILL.md` | same | same |
-| `make gen` (in dev clone) | regenerates client | same | same |
+| `make gen` (in `freelo-go` clone) | regenerates SDK client | same | same |
 
 If any cell breaks, file an issue and block the release until fixed.

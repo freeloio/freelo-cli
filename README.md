@@ -153,14 +153,15 @@ make build              # build ./freelo with version ldflags
 make install            # build + install to ~/bin + register skill with Claude Code
 make test               # unit tests (no API required)
 make test-integration   # end-to-end tests against real Freelo API (needs .env.freelo-test)
-make gen                # refresh the OpenAPI spec + regenerate the API client
 make release-dry        # GoReleaser snapshot — builds all 6 platform archives, no publish
 ```
 
-The CLI is a thin wrapper around an [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen)-generated
-client built from the [Freelo OpenAPI spec](https://api.freelo.io/docs/v1/freelo-api.yaml).
-A weekly GitHub Actions cron runs `make gen` and opens a pull request when the upstream
-spec changes — that's how new endpoints reach the CLI without manual work.
+The CLI builds on the [`freelo-go`](https://github.com/freeloio/freelo-go)
+SDK — a sibling Go module that owns the generated OpenAPI client, transport
+(rate limit + retry), and pluggable authentication. A weekly cron in that
+repo regenerates the client from the upstream
+[Freelo OpenAPI spec](https://api.freelo.io/docs/v1/freelo-api.yaml); the
+CLI just bumps its SDK pin to pick up new endpoints.
 
 ## License
 

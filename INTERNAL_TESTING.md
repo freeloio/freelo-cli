@@ -54,8 +54,12 @@ tvůj příkaz  →  freelo CLI
 
 Toto byl jeden z hlavních důvodů celé refaktorizace.
 
+Od v1.1.0 generovaný klient žije v sibling repu
+[`github.com/freeloio/freelo-go`](https://github.com/freeloio/freelo-go).
+CRON na regeneraci běží **tam**, ne v tomto repu:
+
 ```
-každé pondělí 6:00 UTC
+každé pondělí 6:00 UTC (v repu freelo-go)
         │
         ▼
 GitHub Actions: update-api-spec.yml
@@ -64,23 +68,34 @@ GitHub Actions: update-api-spec.yml
 1. curl https://api.freelo.io/docs/v1/freelo-api.yaml
 2. patch (Client → BusinessClient — kvůli kolizi názvů)
 3. go generate → nový klient
-4. go build + go test
+4. patchgen (time.Time → freelotime.Time)
+5. go build + go test + go build ./examples/...
         │
         ▼
-Pokud spec ≠ vendored:  otevře PR
-Pokud spec = stejný:    no-op (žádný spam)
+Pokud spec ≠ vendored:  otevře PR v freelo-go
+Pokud spec = stejný:    no-op
 ```
 
-V pondělí ráno přijde notifikace o PR, projedeš diff:
+Po sloučení PR ve freelo-go se otaguje nová verze SDK. Tady (CLI) pak
+udělej:
 
-| Druh změny v API | Ruční práce |
-|---|---|
-| Nový optional parametr | Žádná, smerguj |
-| Nový endpoint | Pokud chceš command, dopiš ho; jinak smerguj a nic se nestane |
-| Přejmenování pole / breaking change | Build padne, dopíšeš opravu (typicky 2-3 řádky) |
-| Smazaný endpoint | Build padne, smažeš odpovídající command |
+```bash
+go get github.com/freeloio/freelo-go@v0.x.y
+go mod tidy
+make test
+```
 
-Frekvence změn ve Freelo specu je nízká, většinou půjde jen o smerge.
+V pondělí ráno přijde notifikace o PR ve freelo-go, projedeš diff:
+
+| Druh změny v API | Ruční práce ve freelo-go | Ruční práce v CLI |
+|---|---|---|
+| Nový optional parametr | Smerguj | Bump SDK pin, smerguj |
+| Nový endpoint | Smerguj | Pokud chceš command, dopiš ho |
+| Přejmenování pole / breaking change | Smerguj (typed builds doplníš) | Bump SDK pin, oprav 2-3 commandy |
+| Smazaný endpoint | Smerguj | Smaž odpovídající command |
+
+Frekvence změn ve Freelo specu je nízká, většinou půjde jen o smerge +
+SDK bump.
 
 ## 4. Instalace
 

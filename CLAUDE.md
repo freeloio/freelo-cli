@@ -40,26 +40,23 @@ until Freelo backend provisions a dedicated `client_id` for the CLI.
 ```
 cmd/freelo/              main.go — thin entrypoint, calls cli.Execute()
 internal/
-  cli/root.go            root cobra.Command, wires all subcommands (lazy)
+  cli/root.go            root cobra.Command, wires all subcommands (lazy).
+                         Single site that calls freelo.New(...) on the SDK
+                         and credstore.New(devMode) on the local store.
   commands/              27 command groups, all on the typed Freelo client.
                          Each command calls app.FreeloClient.<Op>(ctx, ...)
                          with typed params + bodies and decodes raw
                          *http.Response via helpers.go (consumeAPIObject /
                          consumeAPIBody). Union types (labels, files) use
                          the generated From*Input0/1/2 helpers.
-  api/wrapper.go         production seam for the generated client:
-                         Basic Auth + User-Agent + rate limit + retry+backoff.
-                         Exposes RawClientFromResponses for the `api`
-                         passthrough to reach the underlying Server + doer +
-                         RequestEditors without rebuilding the stack.
-  api/freelo/            oapi-codegen output (DO NOT EDIT — regenerate via `make gen`)
-  auth/auth.go           Provider interface + BasicAuth impl. Service
-                         namespace switches between "freelo-cli" (prod) and
-                         "freelo-cli-dev" (--dev) so the OS keyring keeps
-                         them separate.
-  auth/keyring.go        OS keyring by default (Keychain / Credential Manager
-                         / Secret Service via zalando/go-keyring); file
-                         fallback opt-in via FREELO_KEYRING=file (0600 JSON)
+                         api.go: `freelo api get/post/put/delete` passthrough,
+                         routed through app.SDK.Do for header control.
+  credstore/             OS keyring (zalando/go-keyring) + 0600 JSON file
+                         fallback (FREELO_KEYRING=file). Namespace switches
+                         between "freelo-cli" (prod) and "freelo-cli-dev"
+                         (--dev). AsProvider() returns a freelo-go
+                         CredentialsFunc — the SDK transport never touches
+                         the keyring directly.
   config/config.go       layered config: flags > env > local > global > defaults
   output/output.go       envelope pattern — Format{Auto,JSON,Agent,Quiet,IDs,Count}
 skills/
@@ -73,39 +70,59 @@ skills/
                          color whitelist, HTML sanitization, subtask
                          task_id mismatch, /users/me wrapping, onboarding
                          project invisibility — kept and documented.
-spec/freelo-api.yaml     vendored OpenAPI 3.0.3 spec (6205 lines, 90 paths) —
-                         patched: schema `Client` → `BusinessClient` so it
-                         does not collide with oapi-codegen's HTTP `Client` type
 ```
 
+**HTTP/auth lives in the SDK.** The generated client, transport (rate
+limit + retry), and auth provider interfaces live in
+[`github.com/freeloio/freelo-go`](https://github.com/freeloio/freelo-go)
+(sibling repo at `~/projects/freelo/freelo-go`). The CLI imports it as
+`freelosdk` (top-level Client) and `freeloapi` (generated typed methods).
+A `replace` directive in `go.mod` points at `../freelo-go` so changes can
+be tested round-trip without publishing — drop it when SDK tags align.
+
 **Why we use the raw `*http.Response` methods (not `*WithResponse` variants):**
-Freelo returns timestamps without a timezone suffix (`"2026-04-24T11:12:38"`).
-oapi-codegen's generated `*WithResponse` methods auto-decode 2xx JSON into typed
-structs that expect RFC3339 timestamps with a zone, so the decode fails and the
-whole call returns an error even on HTTP 200. Going through the raw methods
-keeps us on typed params + the wrapper's auth/UA/retry without tripping that
-bug. See `internal/commands/helpers.go` for the shared `readRawBody` /
-`consumeAPIObject` / `consumeAPIBody` helpers every command uses.
+Historically the CLI reached for the raw methods because oapi-codegen's
+`*WithResponse` decode would fail on Freelo's timezone-less timestamps
+(`"2026-04-24T11:12:38"`). The SDK now wires `freelotime.Time` into every
+date-time field via post-generation patching, so `*WithResponse` decode
+works — but the CLI's existing 27 command files still go through the raw
+methods + `consumeAPIObject` / `consumeAPIBody` because they feed the
+output envelope's `map[string]any` shape. New commands can use either
+path; converting the existing ones is a follow-up if/when needed.
 
 **Commands that were dropped during Phase 3** (the spec confirmed they're not
 supported server-side; probed live to verify every one returns 404):
 - `subtasks show|finish|activate|delete` — `/subtask/{id}` doesn't exist
 - `comments delete` — `/comment/{id}` only supports POST (edit), not DELETE
 
-`make gen` downloads the upstream spec, re-applies the `Client → BusinessClient`
-sed, and regenerates `internal/api/freelo/freelo.gen.go`. The rename is the
-only manual patch needed today; if Freelo adds more type-name collisions in the
-future they go in the same Makefile step.
-
 Key design decisions already made:
 
-- `auth.Provider` interface is **deliberately pluggable** — when OAuth unblocks,
-  add `internal/auth/oauth.go` alongside `BasicAuth`, don't rework the interface.
-- Output envelope lives in `internal/output/` and is intentionally boring/stable;
-  **don't refactor it** during the oapi-codegen migration. It's Phase-3-safe.
+- The SDK's `auth.Provider` interface is **deliberately pluggable** —
+  when OAuth unblocks, add `auth.OAuth2{...}` to freelo-go alongside
+  `BasicAuth`/`CredentialsFunc`, don't rework the interface.
+- Output envelope lives in `internal/output/` and is intentionally boring/stable.
+  **Don't refactor it.**
 - **Local config cannot override `base_url`** (security: prevents credential theft
   via a malicious repo's `.freelo/config.json`). See `internal/config/config.go`.
-- **HTTPS enforced** for `base_url`; any non-https URL resets to default.
+- **HTTPS enforced** for `base_url` (the SDK enforces it again at `WithBaseURL`).
+
+## SDK update playbook
+
+When `freelo-go` releases a new version:
+
+1. In `~/projects/freelo/freelo-go`: review CHANGELOG, run `make test`
+   and `make examples` to confirm green. Tag and push.
+2. In this repo: bump the pinned version in `go.mod` (or, if testing
+   pre-tag changes, switch to a `replace` directive at `../freelo-go`).
+   Run `go mod tidy`.
+3. Run `make test` + `make test-integration` + `make test-live` to make
+   sure no command regressed.
+4. Cut a CLI patch release.
+
+For SDK changes that need to be tested in CLI before tagging, keep the
+`replace github.com/freeloio/freelo-go => ../freelo-go` in go.mod while
+working in both repos. Drop the directive and pin a real version once the
+SDK side is published.
 
 ## Auth flow
 
@@ -125,6 +142,12 @@ make test-integration   # end-to-end tests against real Freelo API (needs .env.f
 make test-live          # legacy smoke test of ~7 commands against live API
 make release-dry        # goreleaser --snapshot --clean
 ```
+
+**Spec regeneration moved to `freelo-go`.** This repo no longer has a
+`make gen` target or an `update-api-spec.yml` workflow — those run in the
+SDK repo against `~/projects/freelo/freelo-go/spec/freelo-api.yaml`.
+After an SDK regen, bump the pinned version in this repo's `go.mod` and
+re-run `make test`.
 
 Integration tests live in `test/integration/` behind a `//go:build integration`
 tag so `go test ./...` never touches them accidentally. They drive the compiled
@@ -149,8 +172,10 @@ The full catalog of ~70 gotchas lives in
 [`claude-freelo-skill`](https://github.com/freeloio/claude-freelo-skill) SKILL.md.
 Highlights the CLI must respect:
 
-- **Rate limit: 25 req/min** — current client enforces ~2.4 s min interval. Phase 3
-  wrapper must keep this AND add retry-with-backoff on 429/5xx (3 tries).
+- **Rate limit: 25 req/min** — SDK transport enforces ~2.4 s min interval and
+  retries with exponential backoff on 429/5xx (3 tries). Configurable via
+  `freelosdk.WithRateLimit` / `WithRetry` if a CLI command genuinely needs
+  different behavior, but the defaults match the server contract.
 - **HTML sanitization** on task/comment bodies — input gets stripped of certain
   tags server-side. Don't rely on round-trip equality in tests.
 - **4 pagination shapes**: `data.tasks[]`, `data.items[]`, bare array, and dict
@@ -161,9 +186,13 @@ Highlights the CLI must respect:
   - `/task/{id}/public-link`, `/task/{id}/user-time-estimate`
   - Notes `files` field is silently ignored by the server
   - Nested subtasks return `task_id: null` — unusable
-- **User-Agent required** by Freelo API. CLI must send
-  `User-Agent: FreeloCLI/<version>`; current handwritten client sends just
-  `FreeloCLI` — Phase 3 will fix.
+- **User-Agent required** by Freelo API. SDK sends `FreeloCLI/<version>`
+  set via `freelosdk.WithUserAgent` in `internal/cli/root.go`.
+- **Timezone-less timestamps** (`"2026-04-24T11:12:38"`) are parsed as
+  Europe/Prague wall-clock and normalized to UTC by `freelotime.Time`,
+  which the SDK injects on every spec date-time field. New code that
+  builds typed bodies should construct dates as
+  `&freelotime.Time{Time: t}` rather than raw `time.Time`.
 
 ## Versioning
 
@@ -185,9 +214,10 @@ is what unaware builds pick up.
   *why*. See recent commits (`git log`) for tone.
 - **One concern per commit.** During the oapi-codegen migration, commit
   command-group by command-group (tasks, then projects, …) so bisect works.
-- **No new deps without a strong reason.** Current tree is Cobra + `x/term` —
-  keep it tight. Phase 3 adds `oapi-codegen`-generated code (no runtime dep on
-  the generator); Phase 5 adds `github.com/zalando/go-keyring`.
+- **No new deps without a strong reason.** Direct deps post-SDK-extraction:
+  `freelo-go` (the SDK), Cobra, `x/term`, `zalando/go-keyring`,
+  `oapi-codegen/runtime/types`, `google/uuid`. Generated client and HTTP
+  transport now live in the SDK; this repo stays small.
 - **Security mindset by default** — the existing client already thought about
   10 MB response cap, 500-char error truncation, HTTPS enforcement, local config
   base_url lockout. Keep that bar.
@@ -197,6 +227,8 @@ is what unaware builds pick up.
 - Don't rewrite `internal/output/` envelope pattern. It's stable on purpose.
 - Don't re-open the OAuth scope unless the user brings new info from the Freelo
   backend team (dedicated client_id provisioned, partner program opened, etc.).
-- Don't squash the `skills/freelo/SKILL.md` rewrite into Phase 3 — it's its own
-  Phase 4 with a different audience (users *with* CLI vs. users *without*).
 - Don't refactor the public skill. It's shipped and deliberately monolithic.
+- Don't reach across into `freelo-go` to "fix" something in this repo —
+  if it's an SDK concern, fix it there and bump the pinned version.
+- Don't add OS keyring or filesystem credential code to the SDK; that's
+  what `internal/credstore/` exists to keep CLI-side.

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **HTTP/auth layer extracted to [`freelo-go`](https://github.com/freeloio/freelo-go).**
+  The generated OpenAPI client, transport (rate limit + retry), and
+  pluggable auth provider now live in a dedicated SDK module that other
+  Go projects can `go get`. The CLI imports it and contributes a
+  CLI-specific credential store (OS keyring + 0600 file fallback) via a
+  `CredentialsFunc` adapter.
+- `make gen` and the weekly spec-refresh workflow moved to the SDK
+  repo; this repo no longer owns the generated client or vendored spec.
+- New `freelotime.Time` SDK type parses Freelo's timezone-less wire
+  format (`"2026-04-24T11:12:38"`) as Europe/Prague and normalizes to
+  UTC, so typed `*WithResponse` decoders work out of the box for any
+  consumer (including CLI commands that adopt them).
+- `freelo api get/post/put/delete` passthrough now routes through
+  `app.SDK.Do` (a new SDK helper), preserving Content-Type for JSON
+  bodies — previous hand-rolled `RawClientFromResponses` is gone.
+
+### Removed (internal)
+
+- `internal/api/`, `internal/auth/`, `spec/freelo-api.yaml`. Replaced by
+  the SDK + `internal/credstore/`.
+
 ## [1.0.0] — 2026-04-28
 
 First public release.
