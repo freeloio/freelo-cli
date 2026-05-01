@@ -8,6 +8,7 @@ import (
 	"time"
 
 	freelo "github.com/freeloio/freelo-go/freeloapi"
+	"github.com/freeloio/freelo-go/freelotime"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -42,7 +43,7 @@ func NewTasksCmd(app *App) *cobra.Command {
 // parseDueDate turns a "YYYY-MM-DD" flag value into a *time.Time. Returns
 // nil if the input is empty. Any parse error is surfaced so the user learns
 // immediately rather than after the request fails server-side.
-func parseDueDate(s string) (*time.Time, error) {
+func parseDueDate(s string) (*freelotime.Time, error) {
 	if s == "" {
 		return nil, nil
 	}
@@ -50,7 +51,7 @@ func parseDueDate(s string) (*time.Time, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid --due-date %q, want YYYY-MM-DD", s)
 	}
-	return &t, nil
+	return &freelotime.Time{Time: t}, nil
 }
 
 func newTasksListCmd(app *App) *cobra.Command {

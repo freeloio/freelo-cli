@@ -5,6 +5,7 @@ import (
 	"time"
 
 	freelo "github.com/freeloio/freelo-go/freeloapi"
+	"github.com/freeloio/freelo-go/freelotime"
 	"github.com/spf13/cobra"
 )
 
@@ -50,13 +51,13 @@ func newOOOStatusCmd(app *App) *cobra.Command {
 // parseOOODate accepts either "YYYY-MM-DD" (treated as start of day UTC) or
 // "YYYY-MM-DD HH:MM:SS" (also UTC). The legacy CLI advertised the second
 // form in --help; we accept both.
-func parseOOODate(s string) (time.Time, error) {
+func parseOOODate(s string) (freelotime.Time, error) {
 	for _, layout := range []string{"2006-01-02 15:04:05", "2006-01-02"} {
 		if t, err := time.ParseInLocation(layout, s, time.UTC); err == nil {
-			return t, nil
+			return freelotime.Time{Time: t}, nil
 		}
 	}
-	return time.Time{}, fmt.Errorf("want YYYY-MM-DD [HH:MM:SS] (UTC), got %q", s)
+	return freelotime.Time{}, fmt.Errorf("want YYYY-MM-DD [HH:MM:SS] (UTC), got %q", s)
 }
 
 func newOOOEnableCmd(app *App) *cobra.Command {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	freelo "github.com/freeloio/freelo-go/freeloapi"
+	"github.com/freeloio/freelo-go/freelotime"
 	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -98,7 +99,7 @@ func newSubtasksCreateCmd(app *App) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("invalid --due-date %q, want YYYY-MM-DD", dueDateStr)
 				}
-				body.DueDate = &t
+				body.DueDate = &freelotime.Time{Time: t}
 			}
 			if workerID != 0 {
 				body.Worker = &workerID
