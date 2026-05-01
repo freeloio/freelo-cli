@@ -90,10 +90,10 @@ jobs:
           # findings still print into the job log and we review them on
           # every PR. Without -no-fail, any finding would block CI; we'd
           # rather have a visible report than a forced red.
-          # `-exclude-dir=internal/api/freelo` skips the auto-generated
-          # client (its findings are spurious and drown the signal).
           # `-fmt=text` writes to the log; on a private repo without GHAS,
           # SARIF + code-scanning upload is unavailable, so a text report
           # is the most useful output we can produce. When the repo flips
           # public (GHAS free), switch back to SARIF + upload-sarif.
-          args: '-no-fail -exclude-dir=internal/api/freelo -fmt=text ./...'
+          # (No -exclude-dir needed since v1.1.0 — the generated client
+          # moved to github.com/freeloio/freelo-go.)
+          args: '-no-fail -fmt=text ./...'
