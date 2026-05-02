@@ -1,4 +1,4 @@
-VERSION ?= v1.0.0-dev
+VERSION ?= v1.1.0
 BINARY = freelo
 INSTALL_DIR = $(HOME)/bin
 
