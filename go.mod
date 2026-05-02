@@ -2,11 +2,6 @@ module github.com/freeloio/freelo-cli
 
 go 1.26.2
 
-// replace directive is removed in Step 3 of the migration plan when
-// freelo-go is tagged. While set, the CLI builds against the local
-// sibling repo so changes can be tested round-trip without publishing.
-replace github.com/freeloio/freelo-go => ../freelo-go
-
 require (
 	github.com/freeloio/freelo-go v0.1.0
 	github.com/google/uuid v1.6.0
