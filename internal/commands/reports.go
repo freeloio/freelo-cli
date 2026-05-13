@@ -48,20 +48,12 @@ func newReportsListCmd(app *App) *cobra.Command {
 			out := app.Output()
 			projectID, _ := cmd.Flags().GetInt("project")
 			userID, _ := cmd.Flags().GetInt("user")
-			page, _ := cmd.Flags().GetInt("page")
 
 			params := &freelo.GetWorkReportsParams{}
-			if projectID != 0 {
-				ids := []int{projectID}
-				params.ProjectsIds = &ids
-			}
-			if userID != 0 {
-				ids := []int{userID}
-				params.UsersIds = &ids
-			}
-			if page > 0 {
-				p := freelo.PageParam(page)
-				params.P = &p
+			setProjectsFilter(&params.ProjectsIds, projectID)
+			setUsersFilter(&params.UsersIds, userID)
+			if err := setPageFilter(cmd, &params.P); err != nil {
+				return err
 			}
 
 			body, err := consumeAPIBody(app.FreeloClient.GetWorkReports(cmd.Context(), params))
@@ -94,7 +86,7 @@ func newReportsListCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
 	cmd.Flags().Int("user", 0, "Filter by user ID")
-	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
+	cmd.Flags().Int("page", 0, "Page number (>= 1; omit for first page)")
 	return cmd
 }
 
@@ -156,7 +148,10 @@ func newReportsEditCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			reportID := mustInt(args[0])
+			reportID, err := parseIntArg(args[0], "report-id")
+			if err != nil {
+				return err
+			}
 
 			body := freelo.EditWorkReportJSONRequestBody{}
 			setAny := false
@@ -203,7 +198,10 @@ func newReportsDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			reportID := mustInt(args[0])
+			reportID, err := parseIntArg(args[0], "report-id")
+			if err != nil {
+				return err
+			}
 
 			if _, err := consumeAPIObject(app.FreeloClient.DeleteWorkReport(cmd.Context(), reportID)); err != nil {
 				out.Err(err, "delete_failed", "")

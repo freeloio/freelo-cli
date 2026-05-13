@@ -57,7 +57,10 @@ func newCFTypesCmd(app *App) *cobra.Command {
 				return err
 			}
 			var types any
-			_ = json.Unmarshal(body, &types)
+			if err := json.Unmarshal(body, &types); err != nil {
+				out.Err(err, "api_error", "")
+				return fmt.Errorf("decode response: %w", err)
+			}
 			out.OK(types, "", nil)
 			return nil
 		},
@@ -80,7 +83,10 @@ func newCFListCmd(app *App) *cobra.Command {
 				return err
 			}
 			var fields any
-			_ = json.Unmarshal(body, &fields)
+			if err := json.Unmarshal(body, &fields); err != nil {
+				out.Err(err, "api_error", "")
+				return fmt.Errorf("decode response: %w", err)
+			}
 			out.OK(fields, "", nil)
 			return nil
 		},
@@ -275,7 +281,10 @@ func newCFEnumOptionsCmd(app *App) *cobra.Command {
 				return rerr
 			}
 			var options any
-			_ = json.Unmarshal(body, &options)
+			if err := json.Unmarshal(body, &options); err != nil {
+				out.Err(err, "api_error", "")
+				return fmt.Errorf("decode response: %w", err)
+			}
 			out.OK(options, "", nil)
 			return nil
 		},

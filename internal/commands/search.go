@@ -34,6 +34,9 @@ func NewSearchCmd(app *App) *cobra.Command {
 				ids := []int{projectID}
 				body.ProjectsIds = &ids
 			}
+			if cmd.Flags().Changed("page") && page < 1 {
+				return fmt.Errorf("--page must be 1 or greater (got %d)", page)
+			}
 			if page > 0 {
 				body.Page = &page
 			}
@@ -73,6 +76,6 @@ func NewSearchCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().StringP("type", "t", "", "Filter by type: task, subtask, project, tasklist, file, comment")
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
-	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
+	cmd.Flags().Int("page", 0, "Page number (>= 1; omit for first page)")
 	return cmd
 }

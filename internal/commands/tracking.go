@@ -94,19 +94,27 @@ func newTrackingStatusCmd(app *App) *cobra.Command {
 				return err
 			}
 
-			// The API returns bare JSON null when nothing is being tracked.
-			// consumeAPIObject hands us a nil map for that body. Normalize
-			// to {"active": false, "task_id": null} so consumers (jq, agents)
-			// always see a stable object shape and a clear active flag.
+			// Server contract: returns bare JSON `null` when nothing is
+			// being tracked, otherwise an object with `task_id`. We
+			// normalize to a stable envelope `{"active": bool, "server": <orig>}`
+			// so consumers (jq, agents) always see the same top-level
+			// shape and a clear bool. Prior versions injected an
+			// "active" key directly into the server's map; that worked
+			// but lied about what the server returned. The wrapper is
+			// explicit about what's ours and what's the server's.
 			summary := "No active tracking"
-			if status == nil {
-				status = map[string]any{"active": false, "task_id": nil}
-			} else if taskID, ok := status["task_id"]; ok && taskID != nil {
-				status["active"] = true
-				summary = fmt.Sprintf("Tracking task %v", taskID)
-			} else {
-				status["active"] = false
+			active := false
+			if status != nil {
+				if taskID, ok := status["task_id"]; ok && taskID != nil {
+					active = true
+					summary = fmt.Sprintf("Tracking task %v", taskID)
+				}
 			}
+			envelope := map[string]any{
+				"active": active,
+				"server": status, // nil when nothing is tracked
+			}
+			status = envelope
 
 			out.OK(status, summary, []output.Breadcrumb{
 				{Action: "stop", Cmd: "freelo tracking stop", Description: "Stop tracking"},

@@ -40,7 +40,10 @@ func newPinnedListCmd(app *App) *cobra.Command {
 				return err
 			}
 			items := make([]map[string]any, 0)
-			_ = json.Unmarshal(body, &items)
+			if err := json.Unmarshal(body, &items); err != nil {
+				out.Err(err, "api_error", "")
+				return fmt.Errorf("decode response: %w", err)
+			}
 			out.OK(items, fmt.Sprintf("%d pinned items", len(items)), nil)
 			return nil
 		},
@@ -90,7 +93,10 @@ func newPinnedDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			id := mustInt(args[0])
+			id, err := parseIntArg(args[0], "pinned-item-id")
+			if err != nil {
+				return err
+			}
 			if _, err := consumeAPIObject(app.FreeloClient.DeletePinnedItem(cmd.Context(), id)); err != nil {
 				out.Err(err, "delete_failed", "")
 				return err

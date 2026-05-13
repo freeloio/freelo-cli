@@ -93,9 +93,15 @@ func newWorkersInviteCmd(app *App) *cobra.Command {
 			projectList := strings.Split(projectsStr, ",")
 			projectInts := make([]int, 0, len(projectList))
 			for _, p := range projectList {
-				if v := mustInt(strings.TrimSpace(p)); v != 0 {
-					projectInts = append(projectInts, v)
+				token := strings.TrimSpace(p)
+				if token == "" {
+					continue
 				}
+				v, perr := parseIntArg(token, "--projects entry")
+				if perr != nil {
+					return perr
+				}
+				projectInts = append(projectInts, v)
 			}
 
 			body := freelo.InviteUsersToProjectsJSONRequestBody{

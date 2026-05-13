@@ -308,7 +308,10 @@ func newLabelsEditCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			labelID := mustInt(args[0])
+			labelID, err := parseIntArg(args[0], "label-id")
+			if err != nil {
+				return err
+			}
 
 			body := freelo.EditProjectLabelJSONRequestBody{}
 			if name, _ := cmd.Flags().GetString("name"); name != "" {
@@ -342,7 +345,10 @@ func newLabelsDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			labelID := mustInt(args[0])
+			labelID, err := parseIntArg(args[0], "label-id")
+			if err != nil {
+				return err
+			}
 			if _, err := consumeAPIObject(app.FreeloClient.DeleteProjectLabel(cmd.Context(), labelID)); err != nil {
 				out.Err(err, "delete_failed", "")
 				return err

@@ -147,7 +147,13 @@ func TestCountFormat(t *testing.T) {
 	}{
 		{"slice of 3", []any{1, 2, 3}, "3\n"},
 		{"empty slice", []any{}, "0\n"},
-		{"single object", map[string]any{"id": 1}, "1\n"},
+		{"slice of maps", []map[string]any{{"id": 1}, {"id": 2}}, "2\n"},
+		// --count on a non-array payload (e.g. a single object from
+		// `tasks show <id>`) returns 0 rather than 1: the previous "1"
+		// fallback was misleading because it also fired on error envelopes
+		// and other malformed shapes. --count is documented as list-only.
+		{"single object", map[string]any{"id": 1}, "0\n"},
+		{"nil", nil, "0\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

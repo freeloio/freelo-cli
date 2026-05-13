@@ -66,11 +66,19 @@ func (s *Store) GetCredentials() (string, string, error) {
 }
 
 // Store persists credentials to the keyring under this Store's namespace.
+//
+// If the second Set fails after the first succeeded, we roll back the
+// first write so the store never sits in a half-saved state where
+// GetCredentials would return "API key not found" instead of "not
+// authenticated" and confuse the user.
 func (s *Store) Store(email, apiKey string) error {
 	if err := s.keyring.Set(s.namespace, emailKey, email); err != nil {
 		return fmt.Errorf("failed to store email: %w", err)
 	}
 	if err := s.keyring.Set(s.namespace, apiKeyKey, apiKey); err != nil {
+		// Best-effort rollback. If rollback also fails, we still want the
+		// user to see the original error, not a confusing secondary one.
+		_ = s.keyring.Delete(s.namespace, emailKey)
 		return fmt.Errorf("failed to store API key: %w", err)
 	}
 	return nil
