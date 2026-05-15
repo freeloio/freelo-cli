@@ -48,10 +48,22 @@ func newReportsListCmd(app *App) *cobra.Command {
 			out := app.Output()
 			projectID, _ := cmd.Flags().GetInt("project")
 			userID, _ := cmd.Flags().GetInt("user")
+			fromStr, _ := cmd.Flags().GetString("from")
+			toStr, _ := cmd.Flags().GetString("to")
 
 			params := &freelo.GetWorkReportsParams{}
 			setProjectsFilter(&params.ProjectsIds, projectID)
 			setUsersFilter(&params.UsersIds, userID)
+			from, err := parseOpenAPIDate(fromStr, "from")
+			if err != nil {
+				return err
+			}
+			params.DateReportedRangeDateFrom = from
+			to, err := parseOpenAPIDate(toStr, "to")
+			if err != nil {
+				return err
+			}
+			params.DateReportedRangeDateTo = to
 			if err := setPageFilter(cmd, &params.P); err != nil {
 				return err
 			}
@@ -94,6 +106,8 @@ func newReportsListCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
 	cmd.Flags().Int("user", 0, "Filter by user ID")
+	cmd.Flags().String("from", "", "Filter by date_reported start (YYYY-MM-DD)")
+	cmd.Flags().String("to", "", "Filter by date_reported end (YYYY-MM-DD)")
 	cmd.Flags().Int("page", 0, "Page number (>= 1; omit for first page)")
 	return cmd
 }
