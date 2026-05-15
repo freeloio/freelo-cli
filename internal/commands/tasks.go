@@ -71,6 +71,12 @@ func newTasksListCmd(app *App) *cobra.Command {
 			var err error
 
 			if tasklistID != 0 && projectID != 0 {
+				if state != "" {
+					return fmt.Errorf("--state cannot be combined with --tasklist (Freelo tasklist endpoint has no state filter — drop --tasklist or use search/api)")
+				}
+				if search != "" {
+					return fmt.Errorf("--search cannot be combined with --tasklist (Freelo tasklist endpoint has no search filter — drop --tasklist to use /all-tasks search)")
+				}
 				body, err = consumeAPIBody(app.FreeloClient.GetTasksInTasklist(ctx, projectID, tasklistID, nil))
 			} else {
 				params := &freelo.GetAllTasksParams{}
