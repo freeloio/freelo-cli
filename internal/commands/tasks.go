@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/freeloio/freelo-cli/internal/output"
 	freelo "github.com/freeloio/freelo-go/freeloapi"
 	"github.com/freeloio/freelo-go/freelotime"
-	"github.com/freeloio/freelo-cli/internal/output"
 	"github.com/spf13/cobra"
 )
 

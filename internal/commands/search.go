@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	freelo "github.com/freeloio/freelo-go/freeloapi"
 	"github.com/freeloio/freelo-cli/internal/output"
+	freelo "github.com/freeloio/freelo-go/freeloapi"
 	"github.com/spf13/cobra"
 )
 

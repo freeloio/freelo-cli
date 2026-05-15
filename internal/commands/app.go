@@ -1,11 +1,11 @@
 package commands
 
 import (
-	freelosdk "github.com/freeloio/freelo-go"
-	"github.com/freeloio/freelo-go/freeloapi"
 	"github.com/freeloio/freelo-cli/internal/config"
 	"github.com/freeloio/freelo-cli/internal/credstore"
 	"github.com/freeloio/freelo-cli/internal/output"
+	freelosdk "github.com/freeloio/freelo-go"
+	"github.com/freeloio/freelo-go/freeloapi"
 )
 
 // App is the shared dependency container passed to every command.
