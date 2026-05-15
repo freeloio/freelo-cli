@@ -94,7 +94,9 @@ func consumeAPIAny(resp *http.Response) (any, error) {
 		return nil, nil
 	}
 	var v any
-	_ = json.Unmarshal(raw, &v)
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil, fmt.Errorf("decode response: %w (body starts with: %s)", err, truncateForError(raw))
+	}
 	return v, nil
 }
 

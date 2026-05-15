@@ -2,6 +2,7 @@ package credstore
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -43,7 +44,7 @@ type osKeyring struct{}
 
 func (osKeyring) Get(service, key string) (string, error) {
 	v, err := keyring.Get(service, key)
-	if err == keyring.ErrNotFound {
+	if errors.Is(err, keyring.ErrNotFound) {
 		return "", os.ErrNotExist
 	}
 	if err != nil {
@@ -61,7 +62,7 @@ func (osKeyring) Set(service, key, value string) error {
 
 func (osKeyring) Delete(service, key string) error {
 	err := keyring.Delete(service, key)
-	if err == keyring.ErrNotFound {
+	if errors.Is(err, keyring.ErrNotFound) {
 		return nil
 	}
 	return err
@@ -94,8 +95,14 @@ func (k *fileKeyring) loadCredentials() (map[string]map[string]string, error) {
 	return creds, nil
 }
 
+// saveCredentials writes the credentials map to disk atomically: write to
+// a temp file in the same directory, fsync, chmod 0600, then rename over
+// the target. This way a crash, full disk, or signal between truncate and
+// final write can't leave the user with zero credentials. (POSIX rename is
+// atomic; the temp file is removed if anything fails before the rename.)
 func (k *fileKeyring) saveCredentials(creds map[string]map[string]string) error {
-	dir := filepath.Dir(k.credentialsPath())
+	target := k.credentialsPath()
+	dir := filepath.Dir(target)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
@@ -103,7 +110,38 @@ func (k *fileKeyring) saveCredentials(creds map[string]map[string]string) error 
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(k.credentialsPath(), data, 0600)
+
+	tmp, err := os.CreateTemp(dir, ".credentials-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp credentials file: %w", err)
+	}
+	tmpName := tmp.Name()
+	// On any failure below, remove the temp file. Successful rename
+	// renders the Remove a no-op.
+	defer func() { _ = os.Remove(tmpName) }()
+
+	// Chmod first so the secret bytes never sit on disk world-readable,
+	// even briefly. os.WriteFile's mode arg isn't honored on existing
+	// files; we use an explicit Chmod against the freshly created file.
+	if err := tmp.Chmod(0600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("chmod temp credentials file: %w", err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write temp credentials file: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("sync temp credentials file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temp credentials file: %w", err)
+	}
+	if err := os.Rename(tmpName, target); err != nil {
+		return fmt.Errorf("rename credentials file into place: %w", err)
+	}
+	return nil
 }
 
 func (k *fileKeyring) Get(service, key string) (string, error) {

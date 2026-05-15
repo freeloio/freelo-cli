@@ -30,16 +30,11 @@ func newInvoicesListCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 			projectID, _ := cmd.Flags().GetInt("project")
-			page, _ := cmd.Flags().GetInt("page")
 
 			params := &freelo.GetIssuedInvoicesParams{}
-			if projectID != 0 {
-				ids := []int{projectID}
-				params.ProjectsIds = &ids
-			}
-			if page > 0 {
-				p := freelo.PageParam(page)
-				params.P = &p
+			setProjectsFilter(&params.ProjectsIds, projectID)
+			if err := setPageFilter(cmd, &params.P); err != nil {
+				return err
 			}
 
 			body, err := consumeAPIBody(app.FreeloClient.GetIssuedInvoices(cmd.Context(), params))
@@ -54,7 +49,7 @@ func newInvoicesListCmd(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
-	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
+	cmd.Flags().Int("page", 0, "Page number (>= 1; omit for first page)")
 	return cmd
 }
 
@@ -65,7 +60,10 @@ func newInvoicesShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			invoiceID := mustInt(args[0])
+			invoiceID, err := parseIntArg(args[0], "invoice-id")
+			if err != nil {
+				return err
+			}
 			invoice, err := consumeAPIObject(app.FreeloClient.GetIssuedInvoiceDetail(cmd.Context(), invoiceID))
 			if err != nil {
 				out.Err(err, "not_found", "")
@@ -84,7 +82,10 @@ func newInvoicesMarkCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			invoiceID := mustInt(args[0])
+			invoiceID, err := parseIntArg(args[0], "invoice-id")
+			if err != nil {
+				return err
+			}
 			url, _ := cmd.Flags().GetString("url")
 			subject, _ := cmd.Flags().GetString("subject")
 

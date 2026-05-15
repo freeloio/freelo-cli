@@ -120,12 +120,28 @@ func (w *Writer) Err(err error, code, hint string) {
 }
 
 func (w *Writer) printJSON(v any) {
-	data, _ := json.MarshalIndent(v, "", "  ")
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		// MarshalIndent only fails for unrepresentable types (channels,
+		// funcs, etc.) which shouldn't appear in our payloads. Fall back
+		// to a Go-format dump on stderr so we never silently print "".
+		fmt.Fprintf(os.Stderr, "output: failed to marshal JSON (%v); raw value: %#v\n", err, v)
+		return
+	}
 	fmt.Println(string(data))
 }
 
 func (w *Writer) printIDs(data any) {
+	// Fast paths first — avoid the round-trip when the caller already
+	// hands us the canonical shapes.
 	switch v := data.(type) {
+	case []map[string]any:
+		for _, item := range v {
+			if id, exists := item["id"]; exists {
+				fmt.Printf("%v\n", id)
+			}
+		}
+		return
 	case []any:
 		for _, item := range v {
 			if m, ok := item.(map[string]any); ok {
@@ -134,28 +150,52 @@ func (w *Writer) printIDs(data any) {
 				}
 			}
 		}
-	default:
-		// Try to marshal and re-parse as generic slice
-		raw, _ := json.Marshal(data)
-		var items []map[string]any
-		if json.Unmarshal(raw, &items) == nil {
-			for _, item := range items {
-				if id, exists := item["id"]; exists {
-					fmt.Printf("%v\n", id)
-				}
+		return
+	}
+	// Fallback: marshal/unmarshal to normalize odd shapes (typed slices,
+	// pointer slices) into []map[string]any.
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return
+	}
+	var items []map[string]any
+	if json.Unmarshal(raw, &items) == nil {
+		for _, item := range items {
+			if id, exists := item["id"]; exists {
+				fmt.Printf("%v\n", id)
 			}
 		}
 	}
 }
 
 func (w *Writer) printCount(data any) {
-	raw, _ := json.Marshal(data)
+	// Fast path — no round-trip when caller hands us a canonical slice.
+	switch v := data.(type) {
+	case []map[string]any:
+		fmt.Println(len(v))
+		return
+	case []any:
+		fmt.Println(len(v))
+		return
+	case nil:
+		fmt.Println(0)
+		return
+	}
+	// Fallback: marshal/unmarshal to detect array-shaped data we didn't
+	// fast-path above. Non-array payloads return 0 — using "1" for a
+	// single object was misleading (`--count` on `tasks show <id>`
+	// previously claimed 1 even when the request 404'd into an envelope).
+	raw, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println(0)
+		return
+	}
 	var items []any
 	if json.Unmarshal(raw, &items) == nil {
 		fmt.Println(len(items))
-	} else {
-		fmt.Println(1)
+		return
 	}
+	fmt.Println(0)
 }
 
 func (w *Writer) printStyled(data any, summary string, breadcrumbs []Breadcrumb) {

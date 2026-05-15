@@ -34,16 +34,14 @@ func newNotificationsListCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 			unreadOnly, _ := cmd.Flags().GetBool("unread")
-			page, _ := cmd.Flags().GetInt("page")
 
 			params := &freelo.GetAllNotificationsParams{}
 			if unreadOnly {
 				t := true
 				params.OnlyUnread = &t
 			}
-			if page > 0 {
-				p := freelo.PageParam(page)
-				params.P = &p
+			if err := setPageFilter(cmd, &params.P); err != nil {
+				return err
 			}
 
 			body, err := consumeAPIBody(app.FreeloClient.GetAllNotifications(cmd.Context(), params))
@@ -61,7 +59,7 @@ func newNotificationsListCmd(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().Bool("unread", false, "Show only unread notifications")
-	cmd.Flags().Int("page", 0, "Page number")
+	cmd.Flags().Int("page", 0, "Page number (>= 1; omit for first page)")
 	return cmd
 }
 
@@ -72,10 +70,13 @@ func newNotificationsReadCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			notifID := mustInt(args[0])
+			notifID, err := parseIntArg(args[0], "notification-id")
+			if err != nil {
+				return err
+			}
 
 			if _, err := consumeAPIObject(app.FreeloClient.MarkNotificationAsRead(cmd.Context(), notifID)); err != nil {
-				out.Err(err, "mark_read_failed", "")
+				out.Err(err, "read_failed", "")
 				return err
 			}
 
@@ -92,10 +93,13 @@ func newNotificationsUnreadCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			notifID := mustInt(args[0])
+			notifID, err := parseIntArg(args[0], "notification-id")
+			if err != nil {
+				return err
+			}
 
 			if _, err := consumeAPIObject(app.FreeloClient.MarkNotificationAsUnread(cmd.Context(), notifID)); err != nil {
-				out.Err(err, "mark_unread_failed", "")
+				out.Err(err, "unread_failed", "")
 				return err
 			}
 

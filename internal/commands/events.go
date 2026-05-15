@@ -30,20 +30,12 @@ func newEventsListCmd(app *App) *cobra.Command {
 			out := app.Output()
 			projectID, _ := cmd.Flags().GetInt("project")
 			userID, _ := cmd.Flags().GetInt("user")
-			page, _ := cmd.Flags().GetInt("page")
 
 			params := &freelo.GetAllEventsParams{}
-			if projectID != 0 {
-				ids := []int{projectID}
-				params.ProjectsIds = &ids
-			}
-			if userID != 0 {
-				ids := []int{userID}
-				params.UsersIds = &ids
-			}
-			if page > 0 {
-				p := freelo.PageParam(page)
-				params.P = &p
+			setProjectsFilter(&params.ProjectsIds, projectID)
+			setUsersFilter(&params.UsersIds, userID)
+			if err := setPageFilter(cmd, &params.P); err != nil {
+				return err
 			}
 
 			body, err := consumeAPIBody(app.FreeloClient.GetAllEvents(cmd.Context(), params))
@@ -60,6 +52,6 @@ func newEventsListCmd(app *App) *cobra.Command {
 	}
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
 	cmd.Flags().Int("user", 0, "Filter by user ID")
-	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
+	cmd.Flags().Int("page", 0, "Page number (>= 1; omit for first page)")
 	return cmd
 }

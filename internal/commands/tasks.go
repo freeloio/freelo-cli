@@ -64,7 +64,6 @@ func newTasksListCmd(app *App) *cobra.Command {
 			projectID, _ := cmd.Flags().GetInt("project")
 			tasklistID, _ := cmd.Flags().GetInt("tasklist")
 			search, _ := cmd.Flags().GetString("search")
-			workerID, _ := cmd.Flags().GetInt("worker")
 			state, _ := cmd.Flags().GetString("state")
 
 			ctx := cmd.Context()
@@ -78,18 +77,14 @@ func newTasksListCmd(app *App) *cobra.Command {
 				if search != "" {
 					params.SearchQuery = &search
 				}
-				if projectID != 0 {
-					ids := []int{projectID}
-					params.ProjectsIds = &ids
-				}
-				// /all-tasks does not expose a worker filter in the OpenAPI spec.
-				// The handwritten client used to pass worker_id= and the server
-				// silently ignored it; we stay silent here too.
-				_ = workerID
+				setProjectsFilter(&params.ProjectsIds, projectID)
 				if state != "" {
 					if n, perr := strconv.Atoi(state); perr == nil {
 						params.StateId = &n
 					}
+				}
+				if perr := setPageFilter(cmd, &params.P); perr != nil {
+					return perr
 				}
 				body, err = consumeAPIBody(app.FreeloClient.GetAllTasks(ctx, params))
 			}
@@ -140,9 +135,8 @@ func newTasksListCmd(app *App) *cobra.Command {
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
 	cmd.Flags().Int("tasklist", 0, "Filter by tasklist ID (requires --project)")
 	cmd.Flags().StringP("search", "s", "", "Search query")
-	cmd.Flags().Int("worker", 0, "(unsupported by /all-tasks — see note in code) Filter by worker ID")
 	cmd.Flags().String("state", "", "Filter by state ID (numeric)")
-	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
+	cmd.Flags().Int("page", 0, "Page number (>= 1; omit for first page)")
 	return cmd
 }
 
@@ -153,7 +147,10 @@ func newTasksShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := mustInt(args[0])
+			taskID, err := parseIntArg(args[0], "task-id")
+			if err != nil {
+				return err
+			}
 
 			task, err := consumeAPIObject(app.FreeloClient.GetTask(cmd.Context(), taskID))
 			if err != nil {
@@ -253,7 +250,10 @@ func newTasksEditCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := mustInt(args[0])
+			taskID, err := parseIntArg(args[0], "task-id")
+			if err != nil {
+				return err
+			}
 
 			body := freelo.EditTaskJSONBody{}
 			setAny := false
@@ -306,7 +306,10 @@ func newTasksFinishCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := mustInt(args[0])
+			taskID, err := parseIntArg(args[0], "task-id")
+			if err != nil {
+				return err
+			}
 
 			if _, err := consumeAPIObject(app.FreeloClient.FinishTask(cmd.Context(), taskID)); err != nil {
 				out.Err(err, "finish_failed", "")
@@ -326,7 +329,10 @@ func newTasksActivateCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := mustInt(args[0])
+			taskID, err := parseIntArg(args[0], "task-id")
+			if err != nil {
+				return err
+			}
 
 			if _, err := consumeAPIObject(app.FreeloClient.ActivateTask(cmd.Context(), taskID)); err != nil {
 				out.Err(err, "activate_failed", "")
@@ -346,14 +352,17 @@ func newTasksMoveCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := mustInt(args[0])
+			taskID, err := parseIntArg(args[0], "task-id")
+			if err != nil {
+				return err
+			}
 			tasklistID, _ := cmd.Flags().GetInt("tasklist")
 
 			if tasklistID == 0 {
 				return fmt.Errorf("--tasklist is required")
 			}
 
-			_, err := consumeAPIObject(app.FreeloClient.MoveTask(cmd.Context(), taskID, tasklistID, freelo.MoveTaskJSONRequestBody{}))
+			_, err = consumeAPIObject(app.FreeloClient.MoveTask(cmd.Context(), taskID, tasklistID, freelo.MoveTaskJSONRequestBody{}))
 			if err != nil {
 				out.Err(err, "move_failed", "")
 				return err
@@ -374,7 +383,10 @@ func newTasksDescriptionCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			taskID := mustInt(args[0])
+			taskID, err := parseIntArg(args[0], "task-id")
+			if err != nil {
+				return err
+			}
 			content, _ := cmd.Flags().GetString("set")
 			fileUUIDs, _ := cmd.Flags().GetStringArray("file")
 
@@ -415,7 +427,7 @@ func newTasksDescriptionCmd(app *App) *cobra.Command {
 
 			desc, err := consumeAPIObject(app.FreeloClient.GetTaskDescription(cmd.Context(), taskID))
 			if err != nil {
-				out.Err(err, "get_description_failed", "")
+				out.Err(err, "api_error", "")
 				return err
 			}
 			out.OK(desc, "", nil)

@@ -40,16 +40,11 @@ func newCommentsListCmd(app *App) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
 			projectID, _ := cmd.Flags().GetInt("project")
-			page, _ := cmd.Flags().GetInt("page")
 
 			params := &freelo.GetAllCommentsParams{}
-			if projectID != 0 {
-				ids := []int{projectID}
-				params.ProjectsIds = &ids
-			}
-			if page > 0 {
-				p := freelo.PageParam(page)
-				params.P = &p
+			setProjectsFilter(&params.ProjectsIds, projectID)
+			if err := setPageFilter(cmd, &params.P); err != nil {
+				return err
 			}
 
 			body, err := consumeAPIBody(app.FreeloClient.GetAllComments(cmd.Context(), params))
@@ -80,7 +75,7 @@ func newCommentsListCmd(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntP("project", "p", 0, "Filter by project ID")
-	cmd.Flags().Int("page", 0, "Page number (0-indexed)")
+	cmd.Flags().Int("page", 0, "Page number (>= 1; omit for first page)")
 	return cmd
 }
 
@@ -124,7 +119,10 @@ func newCommentsEditCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			commentID := mustInt(args[0])
+			commentID, err := parseIntArg(args[0], "comment-id")
+			if err != nil {
+				return err
+			}
 			content, _ := cmd.Flags().GetString("content")
 			fileUUIDs, _ := cmd.Flags().GetStringArray("file")
 

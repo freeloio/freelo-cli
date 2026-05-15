@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	freelo "github.com/freeloio/freelo-go/freeloapi"
 	"github.com/freeloio/freelo-cli/internal/output"
@@ -90,7 +89,10 @@ func newProjectsShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			projectID := mustInt(args[0])
+			projectID, err := parseIntArg(args[0], "project-id")
+			if err != nil {
+				return err
+			}
 
 			project, err := consumeAPIObject(app.FreeloClient.GetProject(cmd.Context(), projectID))
 			if err != nil {
@@ -167,7 +169,10 @@ func newProjectsArchiveCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			projectID := mustInt(args[0])
+			projectID, err := parseIntArg(args[0], "project-id")
+			if err != nil {
+				return err
+			}
 
 			if _, err := consumeAPIObject(app.FreeloClient.ArchiveProject(cmd.Context(), projectID)); err != nil {
 				out.Err(err, "archive_failed", "")
@@ -187,7 +192,10 @@ func newProjectsActivateCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			projectID := mustInt(args[0])
+			projectID, err := parseIntArg(args[0], "project-id")
+			if err != nil {
+				return err
+			}
 
 			if _, err := consumeAPIObject(app.FreeloClient.ActivateProject(cmd.Context(), projectID)); err != nil {
 				out.Err(err, "activate_failed", "")
@@ -207,7 +215,10 @@ func newProjectsDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			projectID := mustInt(args[0])
+			projectID, err := parseIntArg(args[0], "project-id")
+			if err != nil {
+				return err
+			}
 
 			if _, err := consumeAPIObject(app.FreeloClient.DeleteProject(cmd.Context(), projectID)); err != nil {
 				out.Err(err, "delete_failed", "")
@@ -220,9 +231,3 @@ func newProjectsDeleteCmd(app *App) *cobra.Command {
 	}
 }
 
-// mustInt is shared with other command groups; kept here because this is
-// where it was originally defined.
-func mustInt(s string) int {
-	v, _ := strconv.Atoi(s)
-	return v
-}

@@ -51,7 +51,16 @@ func newTasklistsListCmd(app *App) *cobra.Command {
 					out.Err(err, "api_error", "")
 					return err
 				}
-				if tls, ok := project["tasklists"].([]any); ok {
+				// The server has historically returned `tasklists` as a JSON
+				// array. If a future schema swap (e.g. to a paginated object)
+				// makes this assertion fail, we'd silently return zero items
+				// — surface that as a clear error instead of an empty success.
+				if raw, present := project["tasklists"]; present {
+					tls, ok := raw.([]any)
+					if !ok {
+						out.Err(fmt.Errorf("unexpected shape for project.tasklists: %T (server may have changed schema)", raw), "api_error", "")
+						return fmt.Errorf("unexpected tasklists shape: %T", raw)
+					}
 					for _, tl := range tls {
 						if m, ok := tl.(map[string]any); ok {
 							simplified = append(simplified, map[string]any{
@@ -96,7 +105,10 @@ func newTasklistsShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			tasklistID := mustInt(args[0])
+			tasklistID, err := parseIntArg(args[0], "tasklist-id")
+			if err != nil {
+				return err
+			}
 
 			tasklist, err := consumeAPIObject(app.FreeloClient.GetTasklist(cmd.Context(), tasklistID))
 			if err != nil {

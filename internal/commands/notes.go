@@ -74,7 +74,10 @@ func newNotesShowCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			noteID := mustInt(args[0])
+			noteID, err := parseIntArg(args[0], "note-id")
+			if err != nil {
+				return err
+			}
 			note, err := consumeAPIObject(app.FreeloClient.GetNote(cmd.Context(), noteID))
 			if err != nil {
 				out.Err(err, "not_found", "")
@@ -97,7 +100,10 @@ func newNotesEditCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			noteID := mustInt(args[0])
+			noteID, err := parseIntArg(args[0], "note-id")
+			if err != nil {
+				return err
+			}
 
 			name, _ := cmd.Flags().GetString("name")
 			content, _ := cmd.Flags().GetString("content")
@@ -136,7 +142,10 @@ func newNotesDeleteCmd(app *App) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := app.Output()
-			noteID := mustInt(args[0])
+			noteID, err := parseIntArg(args[0], "note-id")
+			if err != nil {
+				return err
+			}
 			if _, err := consumeAPIObject(app.FreeloClient.DeleteNote(cmd.Context(), noteID)); err != nil {
 				out.Err(err, "delete_failed", "")
 				return err
