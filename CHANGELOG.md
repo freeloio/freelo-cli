@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-05-15
+
+Pre-production hardening pass. Behavior is unchanged for the happy path
+of every command — this release tightens what happens when something
+goes wrong (network blip mid-write, schema drift, malformed input).
+
+### Fixed
+
+- **Decode helpers** (`decodeAPIObject`, `consumeAPIAny`, customfields /
+  pinned list paths) now surface JSON parse errors instead of silently
+  returning empty data on a non-JSON 2xx body. Schema drift used to be
+  invisible.
+- **TCP connection leak** when the SDK returned both a non-nil response
+  and an error: `consumeAPIObject` / `consumeAPIBody` now close
+  `resp.Body` on every transport error.
+- **SDK init failures** propagate from `PersistentPreRunE` — process
+  exits 1 instead of 0 after a setup error.
+- **`config.Load` no longer calls `os.Exit`** — `--help` and `version`
+  work even when `--dev` is set without `FREELO_DEV_URL`.
+- **`tasklists list`** returns a clear error if `project.tasklists`
+  isn't the expected array shape (was a silent empty success on
+  schema drift).
+- **`freelo tasks show abc`** (non-numeric ID) now returns
+  `task-id must be a number` instead of silently issuing `GET /task/0`.
+  Same parse-and-validate fix across 17 sites — replaces `mustInt`
+  with `parseIntArg`.
+- **`printCount`** returns `0` for non-array payloads (was misleadingly
+  returning `1`, including on error envelopes).
+- **`printJSON`** surfaces marshal errors to stderr instead of
+  producing empty output.
+
+### Changed
+
+- **Command wiring rewritten.** The lazy-wrapper indirection (24
+  `*Lazy` constructors, `wrapLazy`, `patchRunE`, `Use`-string-based
+  `findSubCmd` lookup) is gone. Commands now capture a single `*App`
+  populated in-place by `PersistentPreRunE`. The old approach also
+  had a latent name-collision bug in subcommand lookup.
+- **Pagination boilerplate consolidated.** New `setProjectsFilter` /
+  `setUsersFilter` / `setPageFilter` helpers replace ~150 lines of
+  duplication across 9 commands. `--page` is now 1-indexed with
+  validation everywhere; help text uniform.
+- **`tracking status`** returns a clean `{active, server}` envelope;
+  no longer mutates the server response map in place.
+- **Default ldflags-free build version** is now `v1.2.0-dev` (was a
+  stale `v1.0.0-dev` in `cli/root.go`).
+- **`get_description_failed` → `api_error`** — last outlier among the
+  `*_failed` error codes.
+
+### Removed
+
+- **`freelo tasks list --worker` flag** — was parsed and silently
+  dropped because `/all-tasks` has no `worker_id` parameter. Use
+  `--project + --tasklist` filtering instead.
+
+### Security / durability
+
+- **Atomic credential writes.** `fileKeyring` writes via tempfile +
+  chmod 0600 + Sync + Rename. A crash, full disk, or signal mid-write
+  can no longer wipe stored credentials.
+- **Transactional credential store.** `credstore.Store` rolls back
+  the email key if the api_key write fails — never sits in a
+  half-saved state.
+- **Atomic downloads.** Files write to a `.partial` sibling and
+  rename on success; cleanup removes the partial on any error.
+  Failed downloads no longer leave truncated files under the final
+  name.
+- **Streaming uploads.** Multipart body streams through `io.Pipe`
+  instead of being held twice in memory. Peak RAM is ~32KB
+  regardless of file size — previously ~200MB for the 100MB upload
+  ceiling.
+- **`google/uuid.Parse`** replaces the hand-rolled UUID regex in
+  `validateAndWrapFileUUIDs`; keyring errors are checked via
+  `errors.Is`.
+
+### Tests
+
+- `helpers_test.go` — coverage for `parsePaginatedItems` (4 shapes +
+  edge cases), `parseIntArg`, `validateAndWrapFileUUIDs`.
+- `output_test.go` — updated for the new `--count` semantics.
+
 ## [1.1.0] — 2026-05-02
 
 ### Changed

@@ -2,8 +2,21 @@
 
 Krátký dokument o tom, co jsme postavili, jak to funguje, jak se to bude
 samo aktualizovat, jak s tím pracovat a co teď chceme od interních
-testerů. Verze CLI v době psaní: **v1.0.0-dev**, zatím v privátním repu
+testerů. Verze CLI v době psaní: **v1.2.0**, zatím v privátním repu
 [`freeloio/freelo-cli`](https://github.com/freeloio/freelo-cli).
+
+> **Co se změnilo od posledního testovacího kola (v1.0.0):**
+> - **v1.1.0** — HTTP/auth vrstva vyňata do public SDK
+>   [`freelo-go`](https://github.com/freeloio/freelo-go); týdenní spec
+>   refresh cron přesunutý tam. `freelotime.Time` v SDK řeší Freelo
+>   timezone-less timestampy automaticky.
+> - **v1.2.0** — pre-production hardening: atomické zápisy credentials
+>   i downloadů (žádná půlcestná data při crashi), streaming upload
+>   (RAM ~32KB místo 200MB), surface všech JSON parse erorů místo
+>   tichého prázdného výsledku, drop `--worker` flag u `tasks list`
+>   (Freelo API ho ignoruje), `--page` je teď 1-indexed, `tasks show abc`
+>   reportuje chybu místo `GET /task/0`. Detail v
+>   [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -123,7 +136,7 @@ echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 - `go install github.com/freeloio/freelo-cli/cmd/freelo@latest` (vyžaduje
   Go 1.24+)
 - Stáhnout binary z [GitHub Releases](https://github.com/freeloio/freelo-cli/releases)
-  (zatím prázdné, dokud nevyjde v1.0.0)
+  (publikované od v1.2.0)
 
 ### Aktualizace na novou verzi
 ```bash
@@ -229,7 +242,8 @@ před public launchem.
 ### Test plán (cca 30 minut)
 
 #### Fáze 1 — instalace + login (5 min)
-- [ ] Klonovat repo, `make install`, `freelo version` vypíše `v1.0.0-dev`
+- [ ] Klonovat repo, `make install`, `freelo version` vypíše `v1.2.0`
+  (nebo `v1.2.0-dev`, pokud buildíš z `main` bez ldflags)
 - [ ] `freelo auth login` na svém účtu, OS keyring nepoptá heslo opakovaně
 - [ ] `freelo auth status` ukáže tvoje jméno + email
 
