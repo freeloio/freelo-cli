@@ -105,9 +105,13 @@ func newTrackingStatusCmd(app *App) *cobra.Command {
 			summary := "No active tracking"
 			active := false
 			if status != nil {
-				if taskID, ok := status["task_id"]; ok && taskID != nil {
+				if task, ok := status["task"].(map[string]any); ok && task != nil {
 					active = true
-					summary = fmt.Sprintf("Tracking task %v", taskID)
+					if id, ok := task["id"]; ok && id != nil {
+						summary = fmt.Sprintf("Tracking task %v", id)
+					} else {
+						summary = "Tracking active"
+					}
 				}
 			}
 			envelope := map[string]any{
