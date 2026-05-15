@@ -77,6 +77,14 @@ func newReportsListCmd(app *App) *cobra.Command {
 				if worker, ok := r["worker"].(map[string]any); ok {
 					item["worker"] = worker["fullname"]
 				}
+				if project, ok := r["project"].(map[string]any); ok {
+					item["project_id"] = project["id"]
+					item["project_name"] = project["name"]
+				}
+				if task, ok := r["task"].(map[string]any); ok {
+					item["task_id"] = task["id"]
+					item["task_name"] = task["name"]
+				}
 				simplified = append(simplified, item)
 			}
 
