@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"runtime/debug"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -17,8 +19,37 @@ import (
 // `go install` users without ldflags see "this isn't a release build".
 var Version = "v1.2.0-dev"
 
+// resolveVersion returns the version string the CLI should report.
+//
+// Priority: ldflags > module build info > the -dev fallback.
+//
+// `make build` and goreleaser inject the real tag via ldflags, so Version
+// no longer ends in -dev and we trust it. But `go install <module>@vX.Y.Z`
+// (and @latest) cannot pass ldflags — there Version stays the -dev fallback,
+// yet the Go toolchain records the resolved module version in the binary's
+// build info. Recover it from there so `freelo --version` reports the tag a
+// user actually installed instead of a misleading -dev string.
+//
+// A plain `go build` / `go run` of a local checkout reports "(devel)" for the
+// main module version; in that case we keep the -dev fallback.
+func resolveVersion() string {
+	if !strings.HasSuffix(Version, "-dev") {
+		return Version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if v := info.Main.Version; strings.HasPrefix(v, "v") {
+			return v
+		}
+	}
+	return Version
+}
+
 // Execute is the main entry point for the CLI.
 func Execute() error {
+	// Lock in the reported version once, up front, so the App, the
+	// User-Agent, `freelo version`, and `freelo --version` all agree.
+	Version = resolveVersion()
+
 	// Single *App instance shared with every command builder. It starts
 	// empty; PersistentPreRunE populates the fields before any leaf RunE
 	// fires. See internal/commands/app.go for the design rationale.
@@ -34,12 +65,18 @@ Manage projects, tasks, time tracking, and more from your terminal
 or through AI agents.
 
 freelo works with any AI agent that can run shell commands.`,
+		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			return setupApp(cmd, app)
 		},
 	}
+
+	// `freelo --version` / `-v`. Cobra registers the flag automatically once
+	// Version is set; override the template to read "freelo-cli <version>"
+	// (matches the `freelo version` subcommand's human-mode string).
+	rootCmd.SetVersionTemplate("freelo-cli {{.Version}}\n")
 
 	// Global flags
 	rootCmd.PersistentFlags().Bool("dev", false, "Use development environment (requires FREELO_DEV_URL)")

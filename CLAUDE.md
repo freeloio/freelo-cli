@@ -207,6 +207,18 @@ Default fallback (when built without ldflags) should always reflect the
 Don't let "dev" leak into shipped binaries — `Makefile` `VERSION ?=` default
 is what unaware builds pick up.
 
+`go install <module>@vX.Y.Z` (and `@latest`) can't pass ldflags, so the
+`-dev` fallback would otherwise leak into installed binaries. `resolveVersion()`
+in `internal/cli/root.go` covers that case: when `Version` still ends in `-dev`
+it recovers the real tag from `runtime/debug.ReadBuildInfo()` (`Main.Version`).
+Priority is **ldflags > build-info module version > `-dev` fallback**, so
+release artifacts (Makefile/goreleaser) are unaffected and `go install` users
+get the tag they installed. A plain `go build`/`go run` of a local checkout
+reports `(devel)` for `Main.Version` (or `<tag>+dirty` on a dirty tree) — both
+keep behaving sensibly. `freelo --version` / `-v`, the `freelo version`
+subcommand, and the `FreeloCLI/<version>` User-Agent all read the one resolved
+value.
+
 ## Conventions
 
 - **No emoji in source or commit messages** unless the user explicitly asks.
