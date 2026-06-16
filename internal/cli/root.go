@@ -17,7 +17,7 @@ import (
 
 // Version is set at build time via ldflags. The default suffixes -dev so
 // `go install` users without ldflags see "this isn't a release build".
-var Version = "v1.2.0-dev"
+var Version = "v1.2.1-dev"
 
 // resolveVersion returns the version string the CLI should report.
 //

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-06-16
+
+### Added
+
+- `freelo --version` / `-v` now work. Previously only the `freelo version`
+  subcommand existed and the flag errored with `unknown flag: --version`.
+
+### Fixed
+
+- `go install github.com/freeloio/freelo-cli/cmd/freelo@vX.Y.Z` (and `@latest`)
+  now reports the installed tag instead of the `-dev` fallback. `go install`
+  cannot pass ldflags, so the version is recovered from the module build info
+  (`runtime/debug.ReadBuildInfo`) when ldflags were absent. Priority is
+  ldflags > build-info module version > `-dev` fallback, so `make build` and
+  goreleaser artifacts are unaffected. The `--version` flag, the `version`
+  subcommand, and the `FreeloCLI/<version>` User-Agent all report the same
+  resolved value.
+
 ## [1.2.0] — 2026-05-15
 
 Pre-production hardening pass. Behavior is unchanged for the happy path
