@@ -34,12 +34,18 @@ Manage projects, tasks, time tracking, and more from your terminal
 or through AI agents.
 
 freelo works with any AI agent that can run shell commands.`,
+		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			return setupApp(cmd, app)
 		},
 	}
+
+	// `freelo --version` / `-v`. Cobra registers the flag automatically once
+	// Version is set; override the template to read "freelo-cli <version>"
+	// (matches the `freelo version` subcommand's human-mode string).
+	rootCmd.SetVersionTemplate("freelo-cli {{.Version}}\n")
 
 	// Global flags
 	rootCmd.PersistentFlags().Bool("dev", false, "Use development environment (requires FREELO_DEV_URL)")
