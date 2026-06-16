@@ -25,22 +25,44 @@ freelo search "keyword"
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/freeloio/freelo-cli/main/install.sh | bash
+freelo --version   # verify: prints "freelo-cli vX.Y.Z"
 ```
 
 ### Homebrew (macOS / Linux)
 
-Coming in a follow-up release. For v1.0.0, please use `install.sh`,
+Coming in a follow-up release. For now please use `install.sh`,
 `go install`, or the GitHub Releases binary download below.
 
-### Go install
+### Go install (macOS / Linux / Windows)
+
+Requires [Go](https://go.dev/dl/) on your PATH.
 
 ```bash
+go install github.com/freeloio/freelo-cli/cmd/freelo@latest   # or pin @v1.2.1
+freelo --version   # prints the installed tag, e.g. "freelo-cli v1.2.1"
+```
+
+The binary lands in `$(go env GOBIN)` (defaults to `~/go/bin`, or
+`%USERPROFILE%\go\bin` on Windows). Make sure that directory is on your PATH.
+
+On Windows (PowerShell):
+
+```powershell
 go install github.com/freeloio/freelo-cli/cmd/freelo@latest
+# add Go's bin dir to PATH if it isn't already, then open a new terminal:
+setx PATH "$env:PATH;$env:USERPROFILE\go\bin"
+freelo --version
 ```
 
 ### Manual download
 
-Download the latest binary for your platform from [GitHub Releases](https://github.com/freeloio/freelo-cli/releases).
+Download the latest binary for your platform from [GitHub Releases](https://github.com/freeloio/freelo-cli/releases)
+(Windows: `freelo_windows_amd64.exe`). Then run `freelo --version` to confirm.
+
+> **Version reporting.** Released binaries (`install.sh`, GitHub Releases,
+> Homebrew) and `go install <module>@<tag>` all report the real version via
+> `freelo --version`. A plain `go build` of a local checkout reports a `-dev`
+> / pseudo-version instead — use `make build` for a stamped local build.
 
 ## Authentication
 
