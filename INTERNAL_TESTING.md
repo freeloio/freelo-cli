@@ -123,7 +123,7 @@ cd freelo-cli
 make install
 
 # Ověřit
-freelo version
+freelo --version
 ```
 
 Pokud `~/bin` není v PATH:
@@ -133,10 +133,10 @@ echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 
 ### Alternativy
 
-- `go install github.com/freeloio/freelo-cli/cmd/freelo@latest` (vyžaduje
-  Go 1.24+)
-- Stáhnout binary z [GitHub Releases](https://github.com/freeloio/freelo-cli/releases)
-  (publikované od v1.2.0)
+Ne-repo instalační cesty (curl skript, `go install`, binárka z GitHub
+Releases, Windows / PowerShell) žijí na jednom místě —
+[README → Installation](README.md#installation). Drž je jen tam, sem je
+nekopíruj, ať se mění na jednom místě.
 
 ### Aktualizace na novou verzi
 ```bash
