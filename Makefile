@@ -2,7 +2,7 @@ VERSION ?= v1.2.1-dev
 BINARY = freelo
 INSTALL_DIR = $(HOME)/bin
 
-.PHONY: build install clean test test-integration test-live release-dry release help
+.PHONY: build install clean test test-integration test-live sdk-coverage sdk-drift sdk-snapshot release-dry release help
 
 ## build: Build the freelo binary
 build:
@@ -28,6 +28,18 @@ test:
 test-integration:
 	@if [ -f .env.freelo-test ]; then set -a && . ./.env.freelo-test && set +a; fi; \
 	go test -tags=integration ./test/integration/... -v -timeout 5m
+
+## sdk-coverage: Fail if any SDK operation has no CLI command and no waiver
+sdk-coverage:
+	@./scripts/sdk-gap.sh check
+
+## sdk-drift: Fail if SDK method signatures changed vs committed snapshot
+sdk-drift:
+	@./scripts/sdk-gap.sh drift
+
+## sdk-snapshot: Re-record the SDK signature snapshot (after adopting SDK changes)
+sdk-snapshot:
+	@./scripts/sdk-gap.sh snapshot
 
 ## test-live: Run all commands against the live Freelo API
 test-live: build

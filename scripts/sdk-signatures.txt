@@ -1,0 +1,356 @@
+FIELD AddOrEditCustomFieldValueJSONBody CustomFieldUuid openapi_types.UUID
+FIELD AddOrEditCustomFieldValueJSONBody TaskId          int
+FIELD AddOrEditCustomFieldValueJSONBody Value           string
+FIELD AddOrEditEnumValueJSONBody CustomFieldUuid openapi_types.UUID
+FIELD AddOrEditEnumValueJSONBody TaskId          int
+FIELD AddOrEditEnumValueJSONBody Value openapi_types.UUID
+FIELD AddProjectLabelToProjectJSONBody Color *string
+FIELD AddProjectLabelToProjectJSONBody Id *int
+FIELD AddProjectLabelToProjectJSONBody IsPrivate *bool
+FIELD AddProjectLabelToProjectJSONBody Name *string
+FIELD AddTaskLabelsToTaskJSONBody Labels []TaskLabelAddInput
+FIELD AssignTaskToProjectJSONBody TasklistId int
+FIELD CreateCommentJSONBody Content string
+FIELD CreateCommentJSONBody Files   *[]FileUpload
+FIELD CreateCustomFieldJSONBody Name string
+FIELD CreateCustomFieldJSONBody Type openapi_types.UUID
+FIELD CreateCustomFieldJSONBody Uuid *openapi_types.UUID
+FIELD CreateEnumOptionJSONBody Uuid  *openapi_types.UUID
+FIELD CreateEnumOptionJSONBody Value string
+FIELD CreateNoteJSONBody Content *string
+FIELD CreateNoteJSONBody Name    string
+FIELD CreateProjectFromTemplateJSONBody CurrencyIso     *CreateProjectFromTemplateJSONBodyCurrencyIso
+FIELD CreateProjectFromTemplateJSONBody Layout *CreateProjectFromTemplateJSONBodyGeneralSettingsLayout
+FIELD CreateProjectFromTemplateJSONBody Name *string
+FIELD CreateProjectFromTemplateJSONBody PresetDateFrom *openapi_types.Date
+FIELD CreateProjectFromTemplateJSONBody ProjectOwnerId *int
+FIELD CreateProjectFromTemplateJSONBody UsersIds *[]int
+FIELD CreateProjectFromTemplateJSONBody }
+FIELD CreateProjectJSONBody CurrencyIso CreateProjectJSONBodyCurrencyIso
+FIELD CreateProjectJSONBody Name        string
+FIELD CreateProjectJSONBody ProjectOwnerId *int
+FIELD CreateTaskFromTemplateJSONBody PresetDateFrom   *openapi_types.Date
+FIELD CreateTaskFromTemplateJSONBody TargetProjectId  *int
+FIELD CreateTaskFromTemplateJSONBody TargetTasklistId *int
+FIELD CreateTaskFromTemplateJSONBody TaskId   int
+FIELD CreateTaskFromTemplateJSONBody UsersIds *[]int
+FIELD CreateTaskLabelsJSONBody Color *string
+FIELD CreateTaskLabelsJSONBody Name  *string
+FIELD CreateTaskLabelsJSONBody }
+FIELD CreateTaskReminderJSONBody RemindAt freelotime.Time
+FIELD CreateTasklistFromTemplateJSONBody PresetDateFrom   *openapi_types.Date
+FIELD CreateTasklistFromTemplateJSONBody TargetProjectId  *int
+FIELD CreateTasklistFromTemplateJSONBody TargetTasklistId *int
+FIELD CreateTasklistFromTemplateJSONBody TasklistId int
+FIELD CreateTasklistFromTemplateJSONBody UsersIds   *[]int
+FIELD CreateTasklistJSONBody Budget *string
+FIELD CreateTasklistJSONBody Name   string
+FIELD CreateTasklistJSONBody Priority *int
+FIELD CreateWorkReportJSONBody Cost *string
+FIELD CreateWorkReportJSONBody DateReported *string
+FIELD CreateWorkReportJSONBody Minutes      int
+FIELD CreateWorkReportJSONBody Note         *string
+FIELD CreateWorkReportJSONBody WorkerId     *int
+FIELD EditCommentJSONBody Content string
+FIELD EditCommentJSONBody Files   *[]FileUpload
+FIELD EditEnumOptionJSONBody Value string
+FIELD EditNoteJSONBody Content *string
+FIELD EditNoteJSONBody Name    string
+FIELD EditProjectLabelJSONBody Color     *string
+FIELD EditProjectLabelJSONBody IsPrivate *bool
+FIELD EditProjectLabelJSONBody Name      *string
+FIELD EditTaskDescriptionJSONBody Content string
+FIELD EditTaskDescriptionJSONBody Files   *[]FileUpload
+FIELD EditTaskJSONBody AddTrackingUsersIds *[]int
+FIELD EditTaskJSONBody Content string
+FIELD EditTaskJSONBody DueDate *freelotime.Time
+FIELD EditTaskJSONBody DueDateEnd *freelotime.Time
+FIELD EditTaskJSONBody Files   *[]FileUpload
+FIELD EditTaskJSONBody Name       *string
+FIELD EditTaskJSONBody PriorityEnum *EditTaskJSONBodyPriorityEnum
+FIELD EditTaskJSONBody RemoveTrackingUsersIds *[]int
+FIELD EditTaskJSONBody TrackingUsersIds *[]int
+FIELD EditTaskJSONBody Worker           *int
+FIELD EditTaskJSONBody }
+FIELD EditTaskcheckJSONBody Name *string
+FIELD EditTaskcheckJSONBody Worker *int
+FIELD EditTasklistJSONBody Budget                    *string
+FIELD EditTasklistJSONBody Name                      *string
+FIELD EditTasklistJSONBody Priority                  *int
+FIELD EditTasklistJSONBody ShouldChangeExistingTasks *bool
+FIELD EditTasklistJSONBody TimeBudgetMinutes         *int
+FIELD EditTasklistJSONBody TrackingUsersIds          *[]int
+FIELD EditTasklistJSONBody WorkerId                  *int
+FIELD EditTimeTrackingJSONBody DateReported *freelotime.Time
+FIELD EditTimeTrackingJSONBody Note *string
+FIELD EditTimeTrackingJSONBody TaskId *int
+FIELD EditWorkReportJSONBody Cost *string
+FIELD EditWorkReportJSONBody DateReported *string
+FIELD EditWorkReportJSONBody Minutes      *int
+FIELD EditWorkReportJSONBody Note *string
+FIELD EditWorkReportJSONBody TaskId *int
+FIELD EnableOutOfOfficeJSONBody DateFrom freelotime.Time
+FIELD EnableOutOfOfficeJSONBody DateTo freelotime.Time
+FIELD EnableOutOfOfficeJSONBody }
+FIELD FindTaskRelationsBulkJSONBody TaskIds []int
+FIELD GetAllCommentsParams Order   *GetAllCommentsParamsOrder
+FIELD GetAllCommentsParams OrderBy *GetAllCommentsParamsOrderBy
+FIELD GetAllCommentsParams P *PageParam
+FIELD GetAllCommentsParams Page *PageAliasParam
+FIELD GetAllCommentsParams ProjectsIds *[]int
+FIELD GetAllCommentsParams Type    *GetAllCommentsParamsType
+FIELD GetAllDocsAndFilesParams P *PageParam
+FIELD GetAllDocsAndFilesParams Page *PageAliasParam
+FIELD GetAllDocsAndFilesParams ProjectsIds *[]int
+FIELD GetAllDocsAndFilesParams Type        *GetAllDocsAndFilesParamsType
+FIELD GetAllEventsParams DateRangeDateFrom *openapi_types.Date
+FIELD GetAllEventsParams DateRangeDateTo   *openapi_types.Date
+FIELD GetAllEventsParams EventsTypes       *[]string
+FIELD GetAllEventsParams Order             *GetAllEventsParamsOrder
+FIELD GetAllEventsParams P *PageParam
+FIELD GetAllEventsParams Page *PageAliasParam
+FIELD GetAllEventsParams ProjectsIds       *[]int
+FIELD GetAllEventsParams TasksIds          *[]int
+FIELD GetAllEventsParams UsersIds          *[]int
+FIELD GetAllNotificationsParams NotificationTypes *[]string
+FIELD GetAllNotificationsParams OnlyUnread *GetAllNotificationsParamsOnlyUnread
+FIELD GetAllNotificationsParams Order             *GetAllNotificationsParamsOrder
+FIELD GetAllNotificationsParams P *PageParam
+FIELD GetAllNotificationsParams Page *PageAliasParam
+FIELD GetAllNotificationsParams ProjectsIds *[]int
+FIELD GetAllNotificationsParams TeamsUuids        *[]openapi_types.UUID
+FIELD GetAllNotificationsParams UsersIds          *[]int
+FIELD GetAllProjectsParams CreatedInRangeDateFrom *openapi_types.Date
+FIELD GetAllProjectsParams CreatedInRangeDateTo   *openapi_types.Date
+FIELD GetAllProjectsParams Order   *GetAllProjectsParamsOrder
+FIELD GetAllProjectsParams OrderBy *GetAllProjectsParamsOrderBy
+FIELD GetAllProjectsParams P *PageParam
+FIELD GetAllProjectsParams Page *PageAliasParam
+FIELD GetAllProjectsParams StatesIds *[]GetAllProjectsParamsStatesIds
+FIELD GetAllProjectsParams Tags *[]string
+FIELD GetAllProjectsParams UsersIds               *[]int
+FIELD GetAllTasklistsParams Order       *GetAllTasklistsParamsOrder
+FIELD GetAllTasklistsParams OrderBy     *GetAllTasklistsParamsOrderBy
+FIELD GetAllTasklistsParams P *PageParam
+FIELD GetAllTasklistsParams Page *PageAliasParam
+FIELD GetAllTasklistsParams ProjectsIds *[]int
+FIELD GetAllTasksParams DueDateRangeDateFrom *openapi_types.Date
+FIELD GetAllTasksParams DueDateRangeDateTo *openapi_types.Date
+FIELD GetAllTasksParams FinishedDateRangeDateFrom *openapi_types.Date
+FIELD GetAllTasksParams FinishedDateRangeDateTo *openapi_types.Date
+FIELD GetAllTasksParams FinishedOverdue *GetAllTasksParamsFinishedOverdue
+FIELD GetAllTasksParams MyPriorities *GetAllTasksParamsMyPriorities
+FIELD GetAllTasksParams NoDueDate *GetAllTasksParamsNoDueDate
+FIELD GetAllTasksParams Order        *GetAllTasksParamsOrder
+FIELD GetAllTasksParams OrderBy      *GetAllTasksParamsOrderBy
+FIELD GetAllTasksParams P *PageParam
+FIELD GetAllTasksParams Page *PageAliasParam
+FIELD GetAllTasksParams ProjectsIds *[]int
+FIELD GetAllTasksParams SearchQuery *string
+FIELD GetAllTasksParams StateId *int
+FIELD GetAllTasksParams TasklistsIds *[]int
+FIELD GetAllTasksParams WithLabel *string
+FIELD GetAllTasksParams WithLabels *[]string
+FIELD GetAllTasksParams WithoutLabel *string
+FIELD GetAllTasksParams WorkerId *int
+FIELD GetAllUsersParams P *PageParam
+FIELD GetAllUsersParams Page *PageAliasParam
+FIELD GetArchivedProjectsParams P *PageParam
+FIELD GetArchivedProjectsParams Page *PageAliasParam
+FIELD GetFinishedTasksParams P *PageParam
+FIELD GetFinishedTasksParams Page *PageAliasParam
+FIELD GetFinishedTasksParams SearchQuery *string
+FIELD GetInvitedProjectsParams P *PageParam
+FIELD GetInvitedProjectsParams Page *PageAliasParam
+FIELD GetIssuedInvoicesParams DateRangeDateFrom *openapi_types.Date
+FIELD GetIssuedInvoicesParams DateRangeDateTo   *openapi_types.Date
+FIELD GetIssuedInvoicesParams P *PageParam
+FIELD GetIssuedInvoicesParams Page *PageAliasParam
+FIELD GetIssuedInvoicesParams ProjectsIds       *[]int
+FIELD GetProjectWorkersParams P *PageParam
+FIELD GetProjectWorkersParams Page *PageAliasParam
+FIELD GetProjectsParams Order *GetProjectsParamsOrder
+FIELD GetProjectsParams OrderBy *GetProjectsParamsOrderBy
+FIELD GetSubtasksInTaskParams P *PageParam
+FIELD GetSubtasksInTaskParams Page *PageAliasParam
+FIELD GetTasksInTasklistParams Order   *GetTasksInTasklistParamsOrder
+FIELD GetTasksInTasklistParams OrderBy *GetTasksInTasklistParamsOrderBy
+FIELD GetTemplateProjectsParams CreatedInRangeDateFrom *openapi_types.Date
+FIELD GetTemplateProjectsParams CreatedInRangeDateTo   *openapi_types.Date
+FIELD GetTemplateProjectsParams Order                  *GetTemplateProjectsParamsOrder
+FIELD GetTemplateProjectsParams OrderBy                *GetTemplateProjectsParamsOrderBy
+FIELD GetTemplateProjectsParams P *PageParam
+FIELD GetTemplateProjectsParams Page *PageAliasParam
+FIELD GetTemplateProjectsParams Tags                   *[]string
+FIELD GetTemplateProjectsParams UsersIds               *[]int
+FIELD GetUserProjectsParams Order     *GetUserProjectsParamsOrder
+FIELD GetUserProjectsParams OrderBy   *GetUserProjectsParamsOrderBy
+FIELD GetUserProjectsParams P *PageParam
+FIELD GetUserProjectsParams Page *PageAliasParam
+FIELD GetUserProjectsParams StatesIds *[]GetUserProjectsParamsStatesIds
+FIELD GetWorkReportsParams DateAddRangeDateFrom      *openapi_types.Date
+FIELD GetWorkReportsParams DateAddRangeDateTo        *openapi_types.Date
+FIELD GetWorkReportsParams DateEditedFrom            *openapi_types.Date
+FIELD GetWorkReportsParams DateReportedRangeDateFrom *openapi_types.Date
+FIELD GetWorkReportsParams DateReportedRangeDateTo   *openapi_types.Date
+FIELD GetWorkReportsParams P *PageParam
+FIELD GetWorkReportsParams Page *PageAliasParam
+FIELD GetWorkReportsParams ProjectsIds *[]int
+FIELD GetWorkReportsParams TasksIds    *[]int
+FIELD GetWorkReportsParams TasksLabels               *[]openapi_types.UUID
+FIELD GetWorkReportsParams UsersIds    *[]int
+FIELD GetWorkReportsParams WithOwnTaskless *GetWorkReportsParamsWithOwnTaskless
+FIELD InviteUsersToProjectsJSONBody Emails      *[]openapi_types.Email
+FIELD InviteUsersToProjectsJSONBody ProjectsIds []int
+FIELD InviteUsersToProjectsJSONBody UsersIds    *[]int
+FIELD MarkAsInvoicedJSONBody Subject string
+FIELD MarkAsInvoicedJSONBody Url     string
+FIELD MoveTaskJSONBody CustomFieldsAction *MoveTaskJSONBodyCustomFieldsAction
+FIELD MoveTaskJSONBody SourceTasklistId *int
+FIELD MoveTaskJSONBody WorkReportsAction *MoveTaskJSONBodyWorkReportsAction
+FIELD MoveTaskJSONBody }
+FIELD PinItemToProjectJSONBody Link string
+FIELD PinItemToProjectJSONBody Title *string
+FIELD RemoveProjectLabelFromProjectJSONBody Color *string
+FIELD RemoveProjectLabelFromProjectJSONBody Id        *int
+FIELD RemoveProjectLabelFromProjectJSONBody IsPrivate *bool
+FIELD RemoveProjectLabelFromProjectJSONBody Name      *string
+FIELD RemoveProjectWorkersByEmailsJSONBody UsersEmails []openapi_types.Email
+FIELD RemoveProjectWorkersByIdsJSONBody UsersIds []int
+FIELD RemoveTaskLabelsFromTaskJSONBody Labels []TaskLabelRemoveInput
+FIELD RenameCustomFieldJSONBody Name string
+FIELD SearchJSONBody AuthorsIds *[]int
+FIELD SearchJSONBody DateFrom *openapi_types.Date
+FIELD SearchJSONBody DateTo   *openapi_types.Date
+FIELD SearchJSONBody EntityType *SearchJSONBodyEntityType
+FIELD SearchJSONBody ExcludeEntityTypes *[]SearchJSONBodyExcludeEntityTypes
+FIELD SearchJSONBody IsSubtask *bool
+FIELD SearchJSONBody Lang *SearchJSONBodyLang
+FIELD SearchJSONBody Limit *int
+FIELD SearchJSONBody Order   *SearchJSONBodySortOrder
+FIELD SearchJSONBody OrderBy *SearchJSONBodySortOrderBy
+FIELD SearchJSONBody Page *int
+FIELD SearchJSONBody ProjectsIds *[]int
+FIELD SearchJSONBody SearchQuery string
+FIELD SearchJSONBody StateIds *[]SearchJSONBodyStateIds
+FIELD SearchJSONBody TasklistsIds *[]int
+FIELD SearchJSONBody TasksIds *[]int
+FIELD SearchJSONBody WorkersIds *[]int
+FIELD SearchJSONBody }
+FIELD SetTotalTimeEstimateJSONBody Minutes int
+FIELD SetUserTimeEstimateJSONBody Minutes int
+FIELD StartTimeTrackingJSONBody Note *string
+FIELD StartTimeTrackingJSONBody TaskId *int
+FUNC ActivateProject(ctx context.Context, projectId ProjectIdParam) (*http.Response, error)
+FUNC ActivateTask(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC ActivateTaskcheck(ctx context.Context, taskcheckId TaskcheckIdParam) (*http.Response, error)
+FUNC AddOrEditCustomFieldValue(ctx context.Context, body AddOrEditCustomFieldValueJSONRequestBody) (*http.Response, error)
+FUNC AddOrEditEnumValue(ctx context.Context, body AddOrEditEnumValueJSONRequestBody) (*http.Response, error)
+FUNC AddProjectLabelToProject(ctx context.Context, projectId int, body AddProjectLabelToProjectJSONRequestBody) (*http.Response, error)
+FUNC AddTaskLabelsToTask(ctx context.Context, taskId TaskIdParam, body AddTaskLabelsToTaskJSONRequestBody) (*http.Response, error)
+FUNC ArchiveProject(ctx context.Context, projectId ProjectIdParam) (*http.Response, error)
+FUNC AssignTaskToProject(ctx context.Context, taskId TaskIdParam, body AssignTaskToProjectJSONRequestBody) (*http.Response, error)
+FUNC CreateComment(ctx context.Context, taskId TaskIdParam, body CreateCommentJSONRequestBody) (*http.Response, error)
+FUNC CreateCustomField(ctx context.Context, projectId ProjectIdParam, body CreateCustomFieldJSONRequestBody) (*http.Response, error)
+FUNC CreateEnumOption(ctx context.Context, customFieldUuid openapi_types.UUID, body CreateEnumOptionJSONRequestBody) (*http.Response, error)
+FUNC CreateNote(ctx context.Context, projectId ProjectIdParam, body CreateNoteJSONRequestBody) (*http.Response, error)
+FUNC CreateProject(ctx context.Context, body CreateProjectJSONRequestBody) (*http.Response, error)
+FUNC CreateProjectFromTemplate(ctx context.Context, templateId int, body CreateProjectFromTemplateJSONRequestBody) (*http.Response, error)
+FUNC CreateSubtask(ctx context.Context, taskId TaskIdParam, body CreateSubtaskJSONRequestBody) (*http.Response, error)
+FUNC CreateTask(ctx context.Context, projectId ProjectIdParam, tasklistId TasklistIdParam, body CreateTaskJSONRequestBody) (*http.Response, error)
+FUNC CreateTaskFromTemplate(ctx context.Context, templateId int, body CreateTaskFromTemplateJSONRequestBody) (*http.Response, error)
+FUNC CreateTaskLabels(ctx context.Context, body CreateTaskLabelsJSONRequestBody) (*http.Response, error)
+FUNC CreateTaskReminder(ctx context.Context, taskId TaskIdParam, body CreateTaskReminderJSONRequestBody) (*http.Response, error)
+FUNC CreateTasklist(ctx context.Context, projectId ProjectIdParam, body CreateTasklistJSONRequestBody) (*http.Response, error)
+FUNC CreateTasklistFromTemplate(ctx context.Context, templateId int, body CreateTasklistFromTemplateJSONRequestBody) (*http.Response, error)
+FUNC CreateWorkReport(ctx context.Context, taskId TaskIdParam, body CreateWorkReportJSONRequestBody) (*http.Response, error)
+FUNC DeleteCustomField(ctx context.Context, uuid openapi_types.UUID) (*http.Response, error)
+FUNC DeleteCustomFieldValue(ctx context.Context, uuid openapi_types.UUID) (*http.Response, error)
+FUNC DeleteEnumOption(ctx context.Context, customFieldEnumUuid openapi_types.UUID) (*http.Response, error)
+FUNC DeleteNote(ctx context.Context, noteId int) (*http.Response, error)
+FUNC DeletePinnedItem(ctx context.Context, pinnedItemId int) (*http.Response, error)
+FUNC DeleteProject(ctx context.Context, projectId ProjectIdParam) (*http.Response, error)
+FUNC DeleteProjectLabel(ctx context.Context, labelId int) (*http.Response, error)
+FUNC DeletePublicLinkToTask(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC DeleteTask(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC DeleteTaskReminder(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC DeleteTaskcheck(ctx context.Context, taskcheckId TaskcheckIdParam) (*http.Response, error)
+FUNC DeleteTotalTimeEstimate(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC DeleteUserTimeEstimate(ctx context.Context, taskId TaskIdParam, userId int) (*http.Response, error)
+FUNC DeleteWorkReport(ctx context.Context, workReportId int) (*http.Response, error)
+FUNC DisableOutOfOffice(ctx context.Context, userId int) (*http.Response, error)
+FUNC DownloadFile(ctx context.Context, fileUuid openapi_types.UUID) (*http.Response, error)
+FUNC DownloadIssuedInvoiceReports(ctx context.Context, invoiceId int) (*http.Response, error)
+FUNC EditComment(ctx context.Context, commentId int, body EditCommentJSONRequestBody) (*http.Response, error)
+FUNC EditEnumOption(ctx context.Context, customFieldEnumUuid openapi_types.UUID, body EditEnumOptionJSONRequestBody) (*http.Response, error)
+FUNC EditNote(ctx context.Context, noteId int, body EditNoteJSONRequestBody) (*http.Response, error)
+FUNC EditProjectLabel(ctx context.Context, labelId int, body EditProjectLabelJSONRequestBody) (*http.Response, error)
+FUNC EditTask(ctx context.Context, taskId TaskIdParam, body EditTaskJSONRequestBody) (*http.Response, error)
+FUNC EditTaskDescription(ctx context.Context, taskId TaskIdParam, body EditTaskDescriptionJSONRequestBody) (*http.Response, error)
+FUNC EditTaskcheck(ctx context.Context, taskcheckId TaskcheckIdParam, body EditTaskcheckJSONRequestBody) (*http.Response, error)
+FUNC EditTasklist(ctx context.Context, tasklistId int, body EditTasklistJSONRequestBody) (*http.Response, error)
+FUNC EditTimeTracking(ctx context.Context, body EditTimeTrackingJSONRequestBody) (*http.Response, error)
+FUNC EditWorkReport(ctx context.Context, workReportId int, body EditWorkReportJSONRequestBody) (*http.Response, error)
+FUNC EnableOutOfOffice(ctx context.Context, userId int, body EnableOutOfOfficeJSONRequestBody) (*http.Response, error)
+FUNC FindAvailableProjectLabels(ctx context.Context) (*http.Response, error)
+FUNC FindAvailableTaskLabels(ctx context.Context) (*http.Response, error)
+FUNC FindCustomFieldsByProject(ctx context.Context, projectId ProjectIdParam) (*http.Response, error)
+FUNC FindTaskRelationsBulk(ctx context.Context, body FindTaskRelationsBulkJSONRequestBody) (*http.Response, error)
+FUNC FinishTask(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC FinishTaskcheck(ctx context.Context, taskcheckId TaskcheckIdParam) (*http.Response, error)
+FUNC ForceDeleteEnumOption(ctx context.Context, customFieldEnumUuid openapi_types.UUID) (*http.Response, error)
+FUNC GetAllComments(ctx context.Context, params *GetAllCommentsParams) (*http.Response, error)
+FUNC GetAllDocsAndFiles(ctx context.Context, params *GetAllDocsAndFilesParams) (*http.Response, error)
+FUNC GetAllEvents(ctx context.Context, params *GetAllEventsParams) (*http.Response, error)
+FUNC GetAllNotifications(ctx context.Context, params *GetAllNotificationsParams) (*http.Response, error)
+FUNC GetAllProjects(ctx context.Context, params *GetAllProjectsParams) (*http.Response, error)
+FUNC GetAllStates(ctx context.Context) (*http.Response, error)
+FUNC GetAllTasklists(ctx context.Context, params *GetAllTasklistsParams) (*http.Response, error)
+FUNC GetAllTasks(ctx context.Context, params *GetAllTasksParams) (*http.Response, error)
+FUNC GetAllUsers(ctx context.Context, params *GetAllUsersParams) (*http.Response, error)
+FUNC GetArchivedProjects(ctx context.Context, params *GetArchivedProjectsParams) (*http.Response, error)
+FUNC GetAssignableWorkers(ctx context.Context, projectId ProjectIdParam, tasklistId TasklistIdParam) (*http.Response, error)
+FUNC GetCustomFieldTypes(ctx context.Context) (*http.Response, error)
+FUNC GetEnumOptionsForCustomField(ctx context.Context, customFieldUuid openapi_types.UUID) (*http.Response, error)
+FUNC GetFinishedTasks(ctx context.Context, tasklistId TasklistIdParam, params *GetFinishedTasksParams) (*http.Response, error)
+FUNC GetInvitedProjects(ctx context.Context, params *GetInvitedProjectsParams) (*http.Response, error)
+FUNC GetIssuedInvoiceDetail(ctx context.Context, invoiceId int) (*http.Response, error)
+FUNC GetIssuedInvoiceReportsJson(ctx context.Context, invoiceId int) (*http.Response, error)
+FUNC GetIssuedInvoices(ctx context.Context, params *GetIssuedInvoicesParams) (*http.Response, error)
+FUNC GetNote(ctx context.Context, noteId int) (*http.Response, error)
+FUNC GetOutOfOffice(ctx context.Context, userId int) (*http.Response, error)
+FUNC GetPinnedItems(ctx context.Context, projectId ProjectIdParam) (*http.Response, error)
+FUNC GetProject(ctx context.Context, projectId ProjectIdParam) (*http.Response, error)
+FUNC GetProjectManagerOf(ctx context.Context) (*http.Response, error)
+FUNC GetProjectWorkers(ctx context.Context, projectId ProjectIdParam, params *GetProjectWorkersParams) (*http.Response, error)
+FUNC GetProjects(ctx context.Context, params *GetProjectsParams) (*http.Response, error)
+FUNC GetPublicLinkToTask(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC GetSubtasksInTask(ctx context.Context, taskId TaskIdParam, params *GetSubtasksInTaskParams) (*http.Response, error)
+FUNC GetTask(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC GetTaskDescription(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC GetTaskRelations(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC GetTasklist(ctx context.Context, tasklistId TasklistIdParam) (*http.Response, error)
+FUNC GetTasksInTasklist(ctx context.Context, projectId ProjectIdParam, tasklistId TasklistIdParam, params *GetTasksInTasklistParams) (*http.Response, error)
+FUNC GetTemplateProjects(ctx context.Context, params *GetTemplateProjectsParams) (*http.Response, error)
+FUNC GetTimeTrackingStatus(ctx context.Context) (*http.Response, error)
+FUNC GetUserProjects(ctx context.Context, userId int, params *GetUserProjectsParams) (*http.Response, error)
+FUNC GetUsersMe(ctx context.Context) (*http.Response, error)
+FUNC GetWorkReports(ctx context.Context, params *GetWorkReportsParams) (*http.Response, error)
+FUNC InviteUsersToProjects(ctx context.Context, body InviteUsersToProjectsJSONRequestBody) (*http.Response, error)
+FUNC MarkAsInvoiced(ctx context.Context, invoiceId int, body MarkAsInvoicedJSONRequestBody) (*http.Response, error)
+FUNC MarkNotificationAsRead(ctx context.Context, notificationId int) (*http.Response, error)
+FUNC MarkNotificationAsUnread(ctx context.Context, notificationId int) (*http.Response, error)
+FUNC MoveTask(ctx context.Context, taskId TaskIdParam, tasklistId TasklistIdParam, body MoveTaskJSONRequestBody) (*http.Response, error)
+FUNC PinItemToProject(ctx context.Context, projectId ProjectIdParam, body PinItemToProjectJSONRequestBody) (*http.Response, error)
+FUNC RemoveProjectLabelFromProject(ctx context.Context, projectId int, body RemoveProjectLabelFromProjectJSONRequestBody) (*http.Response, error)
+FUNC RemoveProjectWorkersByEmails(ctx context.Context, projectId ProjectIdParam, body RemoveProjectWorkersByEmailsJSONRequestBody) (*http.Response, error)
+FUNC RemoveProjectWorkersByIds(ctx context.Context, projectId ProjectIdParam, body RemoveProjectWorkersByIdsJSONRequestBody) (*http.Response, error)
+FUNC RemoveTaskFromProject(ctx context.Context, taskId TaskIdParam, projectId ProjectIdParam) (*http.Response, error)
+FUNC RemoveTaskLabelsFromTask(ctx context.Context, taskId TaskIdParam, body RemoveTaskLabelsFromTaskJSONRequestBody) (*http.Response, error)
+FUNC RenameCustomField(ctx context.Context, uuid openapi_types.UUID, body RenameCustomFieldJSONRequestBody) (*http.Response, error)
+FUNC RestoreCustomField(ctx context.Context, uuid openapi_types.UUID) (*http.Response, error)
+FUNC Search(ctx context.Context, body SearchJSONRequestBody) (*http.Response, error)
+FUNC SetTotalTimeEstimate(ctx context.Context, taskId TaskIdParam, body SetTotalTimeEstimateJSONRequestBody) (*http.Response, error)
+FUNC SetUserTimeEstimate(ctx context.Context, taskId TaskIdParam, userId int, body SetUserTimeEstimateJSONRequestBody) (*http.Response, error)
+FUNC StartTimeTracking(ctx context.Context, body StartTimeTrackingJSONRequestBody) (*http.Response, error)
+FUNC StopTimeTracking(ctx context.Context) (*http.Response, error)
