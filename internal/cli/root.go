@@ -97,6 +97,7 @@ freelo works with any AI agent that can run shell commands.`,
 		commands.NewTasksCmd(app),
 		commands.NewTasklistsCmd(app),
 		commands.NewSubtasksCmd(app),
+		commands.NewTaskchecksCmd(app),
 		commands.NewSearchCmd(app),
 		// Communication
 		commands.NewCommentsCmd(app),
