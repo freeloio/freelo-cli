@@ -77,8 +77,11 @@ limit + retry), and auth provider interfaces live in
 [`github.com/freeloio/freelo-go`](https://github.com/freeloio/freelo-go)
 (sibling repo at `~/projects/freelo/freelo-go`). The CLI imports it as
 `freelosdk` (top-level Client) and `freeloapi` (generated typed methods).
-A `replace` directive in `go.mod` points at `../freelo-go` so changes can
-be tested round-trip without publishing — drop it when SDK tags align.
+The CLI pins a tagged SDK version in `go.mod` (currently `v0.2.0`) — no
+`replace` directive. When testing pre-tag SDK changes, temporarily add
+`replace github.com/freeloio/freelo-go => ../freelo-go` to round-trip
+without publishing, then drop it and pin the real tag once the SDK side
+is released.
 
 **Why we use the raw `*http.Response` methods (not `*WithResponse` variants):**
 Historically the CLI reached for the raw methods because oapi-codegen's
