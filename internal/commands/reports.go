@@ -129,14 +129,15 @@ func newReportsCreateCmd(app *App) *cobra.Command {
 				return fmt.Errorf("--task and --minutes are required")
 			}
 
-			date, err := parseOpenAPIDate(dateStr, "date")
-			if err != nil {
-				return err
+			if dateStr != "" {
+				if _, err := parseOpenAPIDate(dateStr, "date"); err != nil {
+					return err
+				}
 			}
 
 			body := freelo.CreateWorkReportJSONRequestBody{Minutes: minutes}
-			if date != nil {
-				body.DateReported = date
+			if dateStr != "" {
+				body.DateReported = &dateStr
 			}
 			if note != "" {
 				body.Note = &note
@@ -182,11 +183,10 @@ func newReportsEditCmd(app *App) *cobra.Command {
 				setAny = true
 			}
 			if dateStr, _ := cmd.Flags().GetString("date"); dateStr != "" {
-				d, err := parseOpenAPIDate(dateStr, "date")
-				if err != nil {
+				if _, err := parseOpenAPIDate(dateStr, "date"); err != nil {
 					return err
 				}
-				body.DateReported = d
+				body.DateReported = &dateStr
 				setAny = true
 			}
 			if note, _ := cmd.Flags().GetString("note"); note != "" {

@@ -37,8 +37,8 @@ func newNotificationsListCmd(app *App) *cobra.Command {
 
 			params := &freelo.GetAllNotificationsParams{}
 			if unreadOnly {
-				t := true
-				params.OnlyUnread = &t
+				v := freelo.GetAllNotificationsParamsOnlyUnreadN1
+				params.OnlyUnread = &v
 			}
 			if err := setPageFilter(cmd, &params.P); err != nil {
 				return err
