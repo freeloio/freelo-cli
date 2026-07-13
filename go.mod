@@ -3,7 +3,7 @@ module github.com/freeloio/freelo-cli
 go 1.26.2
 
 require (
-	github.com/freeloio/freelo-go v0.2.0
+	github.com/freeloio/freelo-go v0.2.1
 	github.com/google/uuid v1.6.0
 	github.com/oapi-codegen/runtime v1.4.0
 	github.com/spf13/cobra v1.10.2

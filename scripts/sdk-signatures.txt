@@ -145,6 +145,7 @@ FIELD GetAllTasksParams Order        *GetAllTasksParamsOrder
 FIELD GetAllTasksParams OrderBy      *GetAllTasksParamsOrderBy
 FIELD GetAllTasksParams P *PageParam
 FIELD GetAllTasksParams Page *PageAliasParam
+FIELD GetAllTasksParams PriorityEnum *GetAllTasksParamsPriorityEnum
 FIELD GetAllTasksParams ProjectsIds *[]int
 FIELD GetAllTasksParams SearchQuery *string
 FIELD GetAllTasksParams StateId *int
@@ -328,6 +329,7 @@ FUNC GetPublicLinkToTask(ctx context.Context, taskId TaskIdParam) (*http.Respons
 FUNC GetSubtasksInTask(ctx context.Context, taskId TaskIdParam, params *GetSubtasksInTaskParams) (*http.Response, error)
 FUNC GetTask(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
 FUNC GetTaskDescription(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
+FUNC GetTaskLabelColors(ctx context.Context) (*http.Response, error)
 FUNC GetTaskRelations(ctx context.Context, taskId TaskIdParam) (*http.Response, error)
 FUNC GetTasklist(ctx context.Context, tasklistId TasklistIdParam) (*http.Response, error)
 FUNC GetTasksInTasklist(ctx context.Context, projectId ProjectIdParam, tasklistId TasklistIdParam, params *GetTasksInTasklistParams) (*http.Response, error)

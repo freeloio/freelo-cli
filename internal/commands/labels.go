@@ -24,6 +24,7 @@ func NewLabelsCmd(app *App) *cobra.Command {
 
 	cmd.AddCommand(
 		newLabelsListCmd(app),
+		newLabelsColorsCmd(app),
 		newLabelsCreateCmd(app),
 		newLabelsAddToTaskCmd(app),
 		newLabelsRemoveFromTaskCmd(app),
@@ -68,6 +69,34 @@ func newLabelsListCmd(app *App) *cobra.Command {
 	}
 }
 
+func newLabelsColorsCmd(app *App) *cobra.Command {
+	return &cobra.Command{
+		Use:   "colors",
+		Short: "List the accepted task-label colors",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			out := app.Output()
+			body, err := consumeAPIBody(app.FreeloClient.GetTaskLabelColors(cmd.Context()))
+			if err != nil {
+				out.Err(err, "api_error", "")
+				return err
+			}
+			// Endpoint returns {"colors": [...]}; normalize to a flat slice
+			// so consumers (--agent, jq) get the same shape as `list`.
+			colors := make([]map[string]any, 0)
+			var wrapped struct {
+				Colors []map[string]any `json:"colors"`
+			}
+			if err := json.Unmarshal(body, &wrapped); err == nil && wrapped.Colors != nil {
+				colors = wrapped.Colors
+			} else {
+				_ = json.Unmarshal(body, &colors)
+			}
+			out.OK(colors, fmt.Sprintf("%d colors", len(colors)), nil)
+			return nil
+		},
+	}
+}
+
 func newLabelsCreateCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -104,7 +133,7 @@ func newLabelsCreateCmd(app *App) *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "Label name (required)")
-	cmd.Flags().String("color", "", "Color hex code (e.g. #ff0000)")
+	cmd.Flags().String("color", "", "Color hex code (e.g. #e9483a; run 'freelo labels colors' for valid values)")
 	return cmd
 }
 
