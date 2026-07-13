@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-07-13
+
+### Added
+
+- `freelo labels colors` — lists the accepted task-label color palette from
+  the public `GET /api/v1/task-label-colors` endpoint. Mirrors `labels list`:
+  the `{"colors":[...]}` response is normalized to a flat slice, so `--agent`
+  and `jq` consumers get a stable shape.
+
+### Changed
+
+- Bumped `freelo-go` `v0.2.0` → `v0.2.1` for the generated `GetTaskLabelColors`
+  method.
+
+### Fixed
+
+- `labels create --color` help no longer suggests `#ff0000`, which is not in
+  the palette and is rejected with HTTP 400. It now shows `#e9483a` (red) and
+  points to `freelo labels colors` for the valid values.
+
 ## [1.2.1] — 2026-06-16
 
 ### Added
@@ -200,6 +220,7 @@ First public release.
 
 Initial private release. See `git log` for the full history.
 
-[Unreleased]: https://github.com/freeloio/freelo-cli/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/freeloio/freelo-cli/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/freeloio/freelo-cli/compare/v1.2.1...v1.3.0
 [1.0.0]: https://github.com/freeloio/freelo-cli/releases/tag/v1.0.0
 [0.1.0]: https://github.com/freeloio/freelo-cli/releases/tag/v0.1.0
